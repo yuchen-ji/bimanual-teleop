@@ -12,7 +12,7 @@ import numpy as np
 import zarr
 
 from bimanual_teleop.recording.sink import Record
-from bimanual_teleop.recording.storage import EpisodeWriter
+from bimanual_teleop.recording.storage import EpisodeWriter, RGBVideo
 from bimanual_teleop.types import Pose
 
 
@@ -38,6 +38,15 @@ class RecordingStorageTests(unittest.TestCase):
 
     def writer(self):
         return EpisodeWriter(self.path, self.start, self.metadata, self.kine)
+
+    def test_rgb_encoder_uses_realtime_single_core_settings(self):
+        container = Mock()
+        stream = container.add_stream.return_value
+        with patch("av.open", return_value=container):
+            RGBVideo(self.path / "camera_0.mp4")
+        container.add_stream.assert_called_once_with("libx264", rate=30)
+        self.assertEqual(stream.options, {"crf": "21", "preset": "ultrafast"})
+        self.assertEqual(stream.thread_count, 2)
 
     def test_numeric_flush_preserves_si_values_and_fk_uses_actual_joints_only(self):
         writer = self.writer()
@@ -129,6 +138,19 @@ class RecordingStorageTests(unittest.TestCase):
         document = json.loads((self.path / "episode.json").read_text())
         self.assertEqual(document["status"], "failed")
         self.assertEqual(document["reason"], "camera clock repeated")
+
+    def test_rgb_encoders_can_be_prepared_before_the_first_live_frame(self):
+        writer = self.writer()
+        writer.prepare_rgb(("camera_0", "camera_1", "camera_2"))
+        writer.prepare_rgb(("camera_0", "camera_1", "camera_2"))
+        self.assertEqual(set(writer.videos), {"camera_0", "camera_1", "camera_2"})
+        image = np.full((480, 640, 3), 80, dtype=np.uint8)
+        record = Record("cameras/camera_0/rgb", self.start + 1, 1,
+                        {"source_time_ms": 1.})
+        writer.write_rgb("camera_0", image, record)
+        writer.close(self.start + 2, status="failed", reason="test")
+        with av.open(str(self.path / "camera_0.mp4")) as container:
+            self.assertEqual(len(list(container.decode(video=0))), 1)
 
     def test_encoder_or_numeric_flush_failure_marks_episode_failed(self):
         for component in ("encoder", "arrays"):

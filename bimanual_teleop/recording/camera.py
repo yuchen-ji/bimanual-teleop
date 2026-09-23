@@ -43,9 +43,13 @@ class CameraRig:
         self.metadata, self.error = {}, None
         self._queue = Queue(90)
         self._stop, self._active = threading.Event(), threading.Event()
-        self._lock = threading.Lock()
+        self._lock, self._delivery_lock = threading.Lock(), threading.Lock()
+        self._delivery_mode = "record"
+        self._preview_next_ns = {}
         self._pipelines, self._threads = [], []
         self._last, self._warm = {}, {}
+        self._accepted, self._delivered = {}, {}
+        self._queue_full_count = 0
         self._required = tuple((f"camera_{i}", kind) for i in range(3)
                                for kind in (("rgb", "depth") if i == 0 and config.main_depth
                                             else ("rgb",)))
@@ -177,12 +181,74 @@ class CameraRig:
             self._warm[key] = self._warm.get(key, 0) + 1
         if not self._active.is_set():
             return
-        image = self._np.asarray(frame.get_data()).copy()
-        record = Record(f"cameras/{name}/{kind}", stamp, sequence, {"source_time_ms": source_ms})
-        try:
-            self._queue.put_nowait((name, kind, image, record))
-        except Full as error:
-            raise RuntimeError("Camera recording queue is full") from error
+        # Episode setup and final flush may import codecs, create arrays or
+        # close encoders.  They deliberately suspend delivery so those bounded
+        # disk operations cannot fill this live-frame queue.  Timestamp and
+        # freshness tracking above stays active while delivery is suspended.
+        with self._delivery_lock:
+            mode = self._delivery_mode
+            if mode == "off" or mode == "preview" and kind != "rgb":
+                return
+            if mode == "preview":
+                next_ns = self._preview_next_ns.get(key, stamp)
+                if stamp < next_ns:
+                    return
+                self._preview_next_ns[key] = stamp + 200_000_000
+            if mode not in ("record", "preview"):
+                return
+            image = self._np.asarray(frame.get_data()).copy()
+            record = Record(f"cameras/{name}/{kind}", stamp, sequence,
+                            {"source_time_ms": source_ms})
+            try:
+                self._queue.put_nowait((name, kind, image, record))
+            except Full as error:
+                with self._lock:
+                    self._queue_full_count += 1
+                    status = self.status_locked()
+                raise RuntimeError(
+                    "Camera recording queue is full: "
+                    f"queued={status['queue_size']}/{status['queue_capacity']}, "
+                    f"accepted={status['accepted']}, delivered={status['delivered']}") from error
+            with self._lock:
+                self._accepted[key] = self._accepted.get(key, 0) + 1
+
+    def status_locked(self):
+        return {
+            "queue_size": self._queue.qsize(), "queue_capacity": self._queue.maxsize,
+            "accepted": {f"{name}/{kind}": count
+                         for (name, kind), count in self._accepted.items()},
+            "delivered": {f"{name}/{kind}": count
+                          for (name, kind), count in self._delivered.items()},
+            "queue_full_count": self._queue_full_count,
+            "delivery_mode": self._delivery_mode,
+        }
+
+    def status(self):
+        with self._lock:
+            return self.status_locked()
+
+    def _set_delivery(self, mode):
+        if mode not in ("off", "preview", "record"):
+            raise ValueError(f"Unknown camera delivery mode: {mode}")
+        with self._delivery_lock:
+            self._delivery_mode = mode
+            self._preview_next_ns.clear()
+        while True:
+            try:
+                self._queue.get_nowait()
+            except Empty:
+                break
+
+    def suspend_delivery(self):
+        """Keep cameras healthy while dropping frames during non-recording disk stalls."""
+        self._set_delivery("off")
+
+    def preview_delivery(self):
+        """Deliver only three RGB streams at 5 Hz while no episode is active."""
+        self._set_delivery("preview")
+
+    def resume_delivery(self):
+        self._set_delivery("record")
 
     def poll(self):
         self.ready
@@ -191,9 +257,13 @@ class CameraRig:
         result = []
         for _ in range(6):
             try:
-                result.append(self._queue.get_nowait())
+                item = self._queue.get_nowait()
             except Empty:
                 break
+            result.append(item)
+            key = item[0], item[1]
+            with self._lock:
+                self._delivered[key] = self._delivered.get(key, 0) + 1
         return result
 
     def close(self):

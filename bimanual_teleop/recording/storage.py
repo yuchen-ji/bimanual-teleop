@@ -20,8 +20,12 @@ class RGBVideo:
         self.stream = self.container.add_stream("libx264", rate=30)
         self.stream.width, self.stream.height = 640, 480
         self.stream.pix_fmt = "yuv420p"
-        self.stream.options = {"crf": "21", "preset": "veryfast"}
-        self.stream.thread_count = 1
+        # Three cameras are encoded serially in the lower-priority recording
+        # process. Two codec threads provide enough measured headroom for
+        # three RGB streams plus depth while leaving control processes ahead
+        # of this worker under scheduler contention.
+        self.stream.options = {"crf": "21", "preset": "ultrafast"}
+        self.stream.thread_count = 2
         self.count = 0
 
     def write(self, rgb):
@@ -55,6 +59,12 @@ class EpisodeWriter:
         self.videos = {}
         self.last_ns = {}
         self.counts = {}
+
+    def prepare_rgb(self, cameras):
+        """Open every encoder before live camera delivery starts."""
+        for camera in cameras:
+            if camera not in self.videos:
+                self.videos[camera] = RGBVideo(self.path / f"{camera}.mp4")
 
     def append(self, record):
         if record.time_ns < self.document["start_ns"]:

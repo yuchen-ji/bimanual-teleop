@@ -81,6 +81,7 @@ class Subscription:
         self.frames = deque()
         self.closed = False
         self.error = None
+        self.rates = []
 
     def recv(self):
         if self.error:
@@ -89,6 +90,10 @@ class Subscription:
 
     def close(self):
         self.closed = True
+
+    def set_rate(self, frequency_hz):
+        self.rates.append(frequency_hz)
+        return frequency_hz
 
 
 class Resource:
@@ -596,6 +601,9 @@ class WujiHandTests(unittest.TestCase):
 
     def test_readonly_start_and_verified_parameters_restored(self):
         driver, device, _ = self.opened()
+        self.assertEqual(driver.feedback_hz_actual, {"joints": 200, "diagnostics": 200})
+        self.assertEqual(device.state.subscription.rates, [200])
+        self.assertEqual(device.diag.subscription.rates, [200])
         self.assertEqual(device.enables, 0)
         self.assertEqual(device.effort.writes, [])
         driver.configure(PROFILE)

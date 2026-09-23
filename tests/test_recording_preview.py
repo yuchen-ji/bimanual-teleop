@@ -6,7 +6,9 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-from bimanual_teleop.recording.preview import _Images, RecordingPreview
+from bimanual_teleop.recording.preview import (
+    _Images, _PREVIEW_PERIOD_S, RecordingPreview, _lower_priority,
+)
 
 
 class RecordingPreviewTests(unittest.TestCase):
@@ -38,14 +40,24 @@ class RecordingPreviewTests(unittest.TestCase):
         finally:
             preview.images.lock.release()
         preview.next_update = 0
-        preview.update({"camera_0": np.ones((480, 640, 3), dtype="u1")})
+        with patch("bimanual_teleop.recording.preview.time.monotonic", return_value=123.):
+            preview.update({"camera_0": np.ones((480, 640, 3), dtype="u1")})
         self.assertGreater(preview.images.stamps[0], 0)
+        self.assertEqual(preview.next_update, 123. + _PREVIEW_PERIOD_S)
         preview.next_update = 0
         preview.process.is_alive.return_value = False
         with patch.object(preview.images, "publish") as publish:
             preview.update({})
             publish.assert_not_called()
         preview.close()
+
+    def test_preview_priority_is_best_effort(self):
+        with patch("bimanual_teleop.recording.preview.os.nice") as nice:
+            _lower_priority()
+            nice.assert_called_once_with(10)
+        with patch("bimanual_teleop.recording.preview.os.nice",
+                   side_effect=OSError("unsupported")):
+            _lower_priority()
 
     def test_stuck_gui_shutdown_is_bounded(self):
         preview = RecordingPreview.__new__(RecordingPreview)

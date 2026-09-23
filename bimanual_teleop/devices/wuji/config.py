@@ -58,6 +58,10 @@ def validate_control_config(config):
         value = config.get(key, default)
         if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
             raise ValueError(f"{key} must be finite and positive")
+    feedback_hz = config.get("feedback_hz", 200)
+    if (isinstance(feedback_hz, bool) or not isinstance(feedback_hz, int)
+            or not 1 <= feedback_hz <= 1000):
+        raise ValueError("feedback_hz must be an integer in [1, 1000]")
     parameters = config.get("parameters", {})
     for key in ("kp", "kd", "current_limit_a"):
         value = parameters.get(key)

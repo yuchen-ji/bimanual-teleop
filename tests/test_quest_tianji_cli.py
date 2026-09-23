@@ -592,7 +592,8 @@ class MainTests(unittest.TestCase):
         with patch.object(cli, "prepare_initial_pose") as prepare, \
                 patch.object(cli, "create_runtime") as create, \
                 redirect_stderr(self.stderr):
-            self.assertEqual(cli.main([*self.args]), 1)
+            self.assertEqual(cli.main([
+                *self.args, "--log-file", str(self.root / "invalid-config.jsonl")]), 1)
         prepare.assert_not_called()
         create.assert_not_called()
         self.assertIn("coordinate_frame", self.stderr.getvalue())

@@ -16,7 +16,7 @@ import zarr
 
 from bimanual_teleop.recording.config import RecordingConfig
 from bimanual_teleop.recording.convert import _read_stream
-from bimanual_teleop.recording.recorder import Recorder, _worker
+from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
 from bimanual_teleop.recording.storage import EpisodeWriter
 from bimanual_teleop.recording.ui import RecordingUI
@@ -29,6 +29,7 @@ class _Rig:
     def __init__(self):
         self.metadata, self.closed = {}, threading.Event()
         self.frames = Queue()
+        self.delivery_events = []
 
     def start(self):
         pass
@@ -46,6 +47,15 @@ class _Rig:
             camera = f"camera_{index}"
             record = Record(f"cameras/{camera}/rgb", stamp, stamp, {"source_time_ms": stamp / 1e6})
             self.frames.put((camera, "rgb", np.zeros((480, 640, 3), dtype="u1"), record))
+
+    def suspend_delivery(self):
+        self.delivery_events.append("suspend")
+
+    def resume_delivery(self):
+        self.delivery_events.append("resume")
+
+    def preview_delivery(self):
+        self.delivery_events.append("preview")
 
     def close(self):
         self.closed.set()
@@ -100,7 +110,7 @@ class RecordingLifecycleTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
         thread = threading.Thread(target=_worker,
-            args=(self.config, None, {}, channel, child, False), daemon=True)
+            args=(self.config, None, {}, channel, child, False, 0), daemon=True)
         thread.start()
         def cleanup():
             if thread.is_alive():
@@ -112,11 +122,20 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.assertEqual(self.receive(connection), ("ready", None))
         connection.send(("start", 7, str(self.path), 1000))
         self.assertEqual(self.receive(connection), ("recording", str(self.path)))
+        self.assertEqual(rig.delivery_events, ["suspend", "suspend", "resume"])
         return channel, connection, thread, parent_alive, rig, seen
 
     def receive(self, connection):
         self.assertTrue(connection.poll(3.), "recorder acknowledgement timed out")
         return connection.recv()
+
+    def test_recording_worker_priority_is_best_effort(self):
+        with patch("bimanual_teleop.recording.recorder.os.nice") as nice:
+            _lower_priority(5)
+            nice.assert_called_once_with(5)
+        with patch("bimanual_teleop.recording.recorder.os.nice",
+                   side_effect=OSError("unsupported")):
+            _lower_priority(5)
 
     def record(self, stamp, sequence=1, stream="hands/left"):
         arm = stream.startswith(("arms/", "arm_commands/"))

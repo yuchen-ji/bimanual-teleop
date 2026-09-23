@@ -9,6 +9,7 @@ import subprocess
 from bimanual_teleop.devices.tianji.sdk import add_sdk_argument
 from bimanual_teleop.types import ControlProfile
 from bimanual_teleop.common.console import configure_runtime_logging, print_message, runtime_message
+from bimanual_teleop.common.runlog import default_run_log_path, process_snapshot
 from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config, select_profile_side
 from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG as DEFAULT_WUJI_CONFIG
@@ -70,6 +71,8 @@ def main(argv=None):
     parser.add_argument("--record", action="store_true", help="启用原始采集；C 开始、S 保存、X 作废")
     parser.add_argument("--recording-config", type=Path,
                         help="采集配置 YAML；默认 configs/recording.yaml")
+    parser.add_argument("--log-file", type=Path,
+                        help="详细运行日志路径；默认写入 logs/teleop_quest_tianji_<时间>_<进程>.jsonl")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="输出跟随受限提示、SDK 告警及完整诊断；默认只显示关键状态和故障")
     args = parser.parse_args(argv)
@@ -83,8 +86,13 @@ def main(argv=None):
     recorder = None
     error = None
     timing = None
+    runtime_log = None
     try:
-        configure_runtime_logging(wuji=combined, verbose=args.verbose)
+        log_path = args.log_file or default_run_log_path()
+        runtime_log = configure_runtime_logging(
+            wuji=combined, verbose=args.verbose, log_file=log_path)
+        runtime_log.start(command="teleop_quest_tianji", arguments=vars(args))
+        print_message(f"详细运行日志：{runtime_log.path}")
         settings = load_config(args.config, args.robot_ip)
         args.robot_ip = settings["controller_ip"]
         args.coordinate_frame = settings["quest"]["coordinate_frame"]
@@ -99,22 +107,32 @@ def main(argv=None):
                 from bimanual_teleop.devices.wuji.config import sdk_user_name
                 args.wuji_settings["sdk_user_name"] = sdk_user_name({}, user_name=args.user_name)
             preflight()
+        runtime_log.event("configuration_loaded", tianji=settings,
+                          wuji=args.wuji_settings if combined else None,
+                          record=args.record, viewer=args.viewer)
         if args.record:
             from bimanual_teleop.recording.config import load_config as load_recording_config, DEFAULT_CONFIG as RECORDING_CONFIG
             from bimanual_teleop.recording.recorder import Recorder
             recorder = Recorder(load_recording_config(args.recording_config or RECORDING_CONFIG),
                 sdk_root=args.sdk_root, viewer=args.viewer,
                 metadata={"tianji_config": settings, "wuji_config": args.wuji_settings})
+            runtime_log.event("recorder_starting", recorder=recorder.status())
             recorder.start()
+            runtime_log.event("recorder_started", recorder=recorder.status())
         with NonblockingTerminal() as terminal:
             if not confirm_motion(terminal, "开始初始回位，完成后等待遥操作接合"):
+                runtime_log.event("motion_confirmation_cancelled")
                 return 0
+            runtime_log.event("motion_confirmation_accepted")
             if args.viewer and not args.record:
                 from bimanual_teleop.visualization.realsense import RealSensePreview
                 preview = RealSensePreview()
                 preview.start()
+            runtime_log.event("initial_pose_starting")
             prepare_initial_pose(args, terminal)
+            runtime_log.event("initial_pose_completed")
             runtime = create_runtime(args, profile, recorder.sink if recorder else None)
+            runtime_log.event("runtime_created", combined=combined)
             ui_type = TeleopUI
             ui_options = {}
             if recorder is not None:
@@ -122,6 +140,8 @@ def main(argv=None):
                 ui_type, ui_options = RecordingUI, {"recorder": recorder}
                 print_message(RECORDING_HELP)
             runtime.start()
+            runtime_log.event("runtime_started", status=(
+                runtime.status(include_target=False) if hasattr(runtime, "status") else {}))
             gesture = None
             if combined and settings["controls"]["gesture_engagement_enabled"]:
                 from bimanual_teleop.control.hand.gesture import GestureCommands
@@ -131,30 +151,53 @@ def main(argv=None):
             ui = ui_type(runtime, profile, gesture=gesture, **ui_options, **settings["controls"],
                             home_enabled=True,
                             verbose=args.verbose,
+                            runtime_log=runtime_log,
                             background_engage=combined,
                             following_message="已接合，双臂与双手正在跟随。" if combined else
                                               f"已接合，{'双臂' if args.side == 'both' else '左臂' if args.side == 'left' else '右臂'}正在跟随手柄。")
             print_message("实机遥操作\n" + ui.help_text)
+            runtime_log.event("control_loop_starting")
             timing = run_loop(runtime, ui, terminal)
+            runtime_log.event("control_loop_completed", timing=timing)
     except KeyboardInterrupt:
-        pass
+        if runtime_log is not None:
+            runtime_log.event("keyboard_interrupt")
     except (OSError, RuntimeError, ValueError, TypeError, ImportError, subprocess.SubprocessError) as problem:
         error = str(problem)
+        if runtime_log is not None:
+            runtime_log.event("unhandled_runtime_error", error=error,
+                              process=process_snapshot())
     finally:
         if ui is not None:
             try:
                 ui.close()
             except (OSError, RuntimeError, ValueError) as problem:
                 error = f"{error + '; ' if error else ''}关闭遥操作失败：{problem}"
+                if runtime_log is not None:
+                    runtime_log.event("ui_close_failed", error=str(problem))
         if runtime is not None and ui is None:
             try:
                 runtime.close()
             except (OSError, RuntimeError, ValueError) as problem:
                 error = f"{error + '; ' if error else ''}关闭运行模块失败：{problem}"
+                if runtime_log is not None:
+                    runtime_log.event("runtime_close_failed", error=str(problem))
         if preview is not None:
-            preview.close()
+            try:
+                preview.close()
+            except (OSError, RuntimeError, ValueError) as problem:
+                error = f"{error + '; ' if error else ''}关闭预览失败：{problem}"
+                if runtime_log is not None:
+                    runtime_log.event("preview_close_failed", error=str(problem))
         if recorder is not None and ui is None:
-            recorder.close()
+            try:
+                recorder.close()
+            except (OSError, RuntimeError, ValueError) as problem:
+                error = f"{error + '; ' if error else ''}关闭采集模块失败：{problem}"
+                if runtime_log is not None:
+                    runtime_log.event("recorder_close_failed", error=str(problem))
+        if runtime_log is not None:
+            runtime_log.close(error=error, timing=timing)
     if error:
         print_message(runtime_message(error, verbose=args.verbose), "error")
     else:

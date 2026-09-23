@@ -3,6 +3,7 @@
 from dataclasses import asdict, replace
 from datetime import datetime
 import multiprocessing as mp
+import os
 from pathlib import Path
 from queue import Empty
 import signal
@@ -13,7 +14,17 @@ from uuid import uuid4
 from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
 
 
-def _worker(config, sdk_root, metadata, channel, connection, viewer):
+def _lower_priority(increment):
+    """Let motion/control processes win CPU contention without requiring privileges."""
+    if not increment:
+        return
+    try:
+        os.nice(increment)
+    except (AttributeError, OSError):
+        pass
+
+
+def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increment=5):
     from bimanual_teleop.devices.tianji.model import TianjiKinematics
     from .camera import CameraRig
     from .storage import EpisodeWriter
@@ -22,6 +33,7 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
     # bounded shutdown requests. Do not interrupt a child midway through I/O.
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+    _lower_priority(nice_increment)
     rig = CameraRig(config)
     writer = None
     preview = None
@@ -39,6 +51,12 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
             from .preview import RecordingPreview
             preview = RecordingPreview()
         rig.start()
+        # Before C, only the optional 5 Hz RGB preview needs pixels. Avoid four
+        # full-rate image copies while the robot is following but not recording.
+        if viewer:
+            rig.preview_delivery()
+        else:
+            rig.suspend_delivery()
         metadata = {**metadata, "recording": asdict(config), "cameras": rig.metadata,
                     "model_sha256": kinematics.model.digest,
                     "pose_source": "FK of recorded measured joints; xyz_m + quaternion_xyzw",
@@ -63,8 +81,18 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
                     if writer is not None:
                         raise RuntimeError("Previous episode has not finished")
                     _, generation, path, start_ns = message
-                    writer = EpisodeWriter(path, start_ns, metadata, kinematics)
+                    # Zarr and codec initialization may take longer than the
+                    # camera queue's intentional backpressure window.  No
+                    # episode is active yet, so keep validating live cameras
+                    # but do not buffer frames that cannot belong to it.
+                    rig.suspend_delivery()
+                    try:
+                        writer = EpisodeWriter(path, start_ns, metadata, kinematics)
+                        writer.prepare_rgb(rig.metadata)
+                    finally:
+                        rig.resume_delivery()
                     ending = None
+                    camera_seen.clear()
                     channel.active.value = True
                     connection.send(("recording", str(path)))
                 elif operation == "stop" and writer is not None:
@@ -73,15 +101,9 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
                     ending = (end_ns, status, reason, time.monotonic() + .15)
                 elif operation == "close":
                     running = False
-            for _ in range(128):
-                try:
-                    record_generation, record = channel.queue.get_nowait()
-                except Empty:
-                    break
-                channel.consumed[(STATE_STREAMS + COMMAND_STREAMS).index(record.stream)] += 1
-                if writer is not None and record_generation == generation and (
-                        ending is None or record.time_ns <= ending[0]):
-                    writer.append(record)
+            # Camera input has the smaller fixed queue and cannot be replayed.
+            # Service it before numeric streams so a Zarr flush cannot leave
+            # all four 30 Hz image streams waiting behind a large state batch.
             for camera, kind, image, record in rig.poll():
                 camera_seen[record.stream] = record.time_ns
                 if kind == "rgb":
@@ -91,6 +113,15 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
                         writer.write_rgb(camera, image, record)
                     else:
                         writer.append(replace(record, values={**record.values, "image": image}))
+            for _ in range(128):
+                try:
+                    record_generation, record = channel.queue.get_nowait()
+                except Empty:
+                    break
+                channel.consumed[(STATE_STREAMS + COMMAND_STREAMS).index(record.stream)] += 1
+                if writer is not None and record_generation == generation and (
+                        ending is None or record.time_ns <= ending[0]):
+                    writer.append(record)
             if preview is not None:
                 preview.update(latest_images)
             drained = (not any(channel.inflight) and list(channel.sent) == list(channel.consumed))
@@ -107,7 +138,14 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
                 if channel.failed.is_set():
                     status, reason = "failed", reason or "采集通道失败"
                 path = str(writer.path)
-                writer.close(end_ns, status, reason)
+                # Final encoder and array flushes are allowed to block without
+                # accumulating frames for the next, not-yet-started episode.
+                rig.suspend_delivery()
+                try:
+                    writer.close(end_ns, status, reason)
+                finally:
+                    if viewer:
+                        rig.preview_delivery()
                 writer = None
                 ending = None
                 channel.active.value = False
@@ -150,6 +188,20 @@ class Recorder:
     @property
     def recording(self):
         return self.state in ("starting", "recording")
+
+    def status(self):
+        process = self.process
+        return {
+            "state": self.state, "ready": self.ready, "error": self.error,
+            "session": str(self.session), "viewer": self.viewer,
+            "process_pid": process.pid if process is not None else None,
+            "process_alive": process.is_alive() if process is not None else False,
+            "channel_active": bool(self.channel.active.value),
+            "channel_failed": self.channel.failed.is_set(),
+            "generation": self.channel.generation.value,
+            "sent": list(self.channel.sent), "consumed": list(self.channel.consumed),
+            "inflight": list(self.channel.inflight),
+        }
 
     def _launch(self):
         self.channel.failed.clear()

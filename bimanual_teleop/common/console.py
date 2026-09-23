@@ -142,15 +142,25 @@ class _ConciseLogHandler(logging.Handler):
             self.console.state(message)
 
 
-def configure_runtime_logging(*, wuji=False, verbose=False):
+def configure_runtime_logging(*, wuji=False, verbose=False, log_file=None):
     """Select concise or verbose Python/SDK logging before device creation."""
+    from .runlog import RuntimeLog, _RuntimeLogHandler
+
     logger = logging.getLogger("bimanual_teleop")
-    logger.setLevel(logging.DEBUG if verbose else logging.WARNING)
+    logger.setLevel(logging.DEBUG if verbose or log_file is not None else logging.WARNING)
     for handler in list(logger.handlers):
-        if isinstance(handler, _ConciseLogHandler):
+        if isinstance(handler, (_ConciseLogHandler, _RuntimeLogHandler)):
             logger.removeHandler(handler)
-    logger.addHandler(_ConciseLogHandler(StatusConsole(), verbose=verbose))
+            if isinstance(handler, _RuntimeLogHandler):
+                handler.run_log.close(reconfigured=True)
+    console_handler = _ConciseLogHandler(StatusConsole(), verbose=verbose)
+    console_handler.setLevel(logging.DEBUG if verbose else logging.WARNING)
+    logger.addHandler(console_handler)
     logger.propagate = False
+    run_log = RuntimeLog(log_file) if log_file is not None else None
+    if run_log is not None:
+        run_log.attach_python_logging(logger)
     if wuji:
         import wuji_sdk
         wuji_sdk.set_log_level("debug" if verbose else "error")
+    return run_log

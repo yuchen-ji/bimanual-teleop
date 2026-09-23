@@ -1,12 +1,14 @@
 """Terminal interaction and scheduling shared by arm and hand teleoperation."""
 
 from dataclasses import asdict
+from collections import deque
 import json
 import math
 import threading
 import time
 
 from bimanual_teleop.common.console import print_message, runtime_message
+from bimanual_teleop.common.runlog import process_snapshot
 from bimanual_teleop.control.arm.cartesian import PERIOD_NS
 
 
@@ -42,7 +44,7 @@ class TeleopUI:
     def __init__(self, runtime, profile, *, emit=None,
                  background_engage=False, following_message="已接合，双臂正在跟随手柄。", gesture=None,
                  verbose=False, home_enabled=False, toggle_engagement_key=None,
-                 ready_pose_key="h", gesture_engagement_enabled=True):
+                 ready_pose_key="h", gesture_engagement_enabled=True, runtime_log=None):
         self.runtime, self.profile = runtime, profile
         self.emit = emit
         self.verbose = verbose
@@ -65,6 +67,9 @@ class TeleopUI:
         self.toggle_engagement_key = toggle_engagement_key
         self.ready_pose_key = ready_pose_key
         self.gesture_engagement_enabled = gesture_engagement_enabled
+        self.runtime_log = runtime_log
+        self._cycle_history = deque(maxlen=400)
+        self._pause_logged = False
         self.loop_timing = {}
         self._reset_tracking_notice()
 
@@ -108,6 +113,8 @@ class TeleopUI:
         if message == self._last_message:
             return
         self._last_message = message
+        if self.runtime_log is not None:
+            self.runtime_log.event("ui_message", level=level, message=str(message))
         if self.emit is None:
             print_message(message, level)
         else:
@@ -142,6 +149,7 @@ class TeleopUI:
         if self.gesture is not None:
             self.gesture.inhibit()
         self.runtime.pause(reason)
+        self._log_pause(reason, origin="ui_abort")
         if reason != self._last_error:
             self.say(brief_reason(reason, verbose=self.verbose), "warning")
         self._last_error = reason
@@ -177,6 +185,9 @@ class TeleopUI:
         if not health.ready:
             self.say(self.waiting_message(health.detail), "warning")
             return False
+        if self.runtime_log is not None:
+            self.runtime_log.event("engage_requested", state=getattr(state, "value", state),
+                                   health=asdict(health))
         if self.background_engage:
             self.say("正在接合；Space / Q 可取消。")
             self._start_operation("engage")
@@ -201,6 +212,8 @@ class TeleopUI:
             self.say(f"请先暂停遥操作，再{home_hint}回位。", "warning")
             return False
         self.engage_pending = False
+        if self.runtime_log is not None:
+            self.runtime_log.event("home_requested", state=state)
         if self.gesture is not None:
             self.gesture.inhibit()
         cancel_hint = "Space" + (" / 摇滚手势" if self.gesture is not None else "")
@@ -235,6 +248,10 @@ class TeleopUI:
     def _engaged(self):
         self._reset_tracking_notice()
         self._last_error = None
+        self._pause_logged = False
+        self._cycle_history.clear()
+        if self.runtime_log is not None:
+            self.runtime_log.event("engaged", process=process_snapshot())
         self.say(self.following_message, "ready")
 
     def _run_operation(self):
@@ -298,19 +315,58 @@ class TeleopUI:
                 self.gesture.inhibit()
             self.last_motion_error = self._last_error = reason
             self.motion_pauses += 1
+            diagnostic, has_retained_diagnostic = self._log_pause(reason, origin="runtime")
             self.say(f"遥操作已暂停：{brief_reason(reason, verbose=self.verbose)}；恢复时{self.start_hint}。", "warning")
-            arms = getattr(self.runtime, "arms", self.runtime)
-            diagnostic = getattr(arms, "last_pause_diagnostic", None)
-            if self.verbose and diagnostic:
-                diagnostic = {**diagnostic, "host_loop": dict(self.loop_timing)}
-                hands = getattr(self.runtime, "hands", None)
-                if hands is not None:
-                    status = hands.status(include_target=False)
-                    diagnostic["hands"] = {key: status.get(key) for key in (
-                        "last_compute_ns", "worker_completed_monotonic_ns", "worker_age_ns",
-                        "last_error")}
+            if self.verbose and has_retained_diagnostic:
                 self.say("[停机诊断] " + json.dumps(
                     diagnostic, ensure_ascii=False, separators=(",", ":")), "warning")
+
+    def _log_pause(self, reason, *, origin):
+        arms = getattr(self.runtime, "arms", self.runtime)
+        retained_value = getattr(arms, "last_pause_diagnostic", None)
+        retained = retained_value if isinstance(retained_value, dict) else {}
+        diagnostic = {**retained, "reason": reason,
+                      "host_loop": dict(self.loop_timing)}
+        hands = getattr(self.runtime, "hands", None)
+        if hands is not None:
+            try:
+                hand_status = hands.status(include_target=False)
+                diagnostic["hands"] = hand_status if isinstance(hand_status, dict) else {}
+            except Exception as error:
+                diagnostic["hands"] = {"status_error": str(error)}
+        if self.runtime_log is not None and not self._pause_logged:
+            self._pause_logged = True
+            try:
+                status = self.runtime.status(include_target=False)
+                if not isinstance(status, dict):
+                    status = {}
+            except Exception as error:
+                status = {"status_error": str(error)}
+            self.runtime_log.event(
+                "motion_pause", origin=origin, reason=reason, diagnostic=diagnostic,
+                runtime_status=status, preceding_cycles=list(self._cycle_history),
+                process=process_snapshot())
+        return diagnostic, bool(retained)
+
+    def record_cycle(self, runtime, cycle_index):
+        if self.runtime_log is None:
+            return
+        arms = getattr(runtime, "arms", runtime)
+        executor = getattr(arms, "executor", None)
+        self._cycle_history.append({
+            "cycle_index": cycle_index,
+            "state": getattr(getattr(runtime, "state", None), "value", getattr(runtime, "state", None)),
+            "host_loop": dict(self.loop_timing),
+            "arm_cycle": dict(getattr(arms, "cycle_timing", {})),
+            "executor": dict(getattr(executor, "timing_status", {})) if executor else {},
+        })
+
+    def log_runtime_status(self, status):
+        if self.runtime_log is not None:
+            self.runtime_log.event("runtime_status", status=status,
+                                   host_loop=dict(self.loop_timing),
+                                   retained_cycles=len(self._cycle_history),
+                                   process=process_snapshot())
 
     def _reset_tracking_notice(self):
         self._tracking_limited_since = {}
@@ -383,11 +439,18 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS):
                     ui.request_engage(wait_until_ready=True)
                 ui.loop_timing["pre_tick_ns"] = time.monotonic_ns() - now
                 tick_started = time.monotonic_ns()
+                tick_process_cpu = time.process_time_ns()
+                tick_thread_cpu = time.thread_time_ns()
                 runtime.tick(now)
                 ui.loop_timing["runtime_tick_ns"] = time.monotonic_ns() - tick_started
+                ui.loop_timing["runtime_tick_process_cpu_ns"] = time.process_time_ns() - tick_process_cpu
+                ui.loop_timing["runtime_tick_thread_cpu_ns"] = time.thread_time_ns() - tick_thread_cpu
             except (OSError, RuntimeError, ValueError) as error:
                 ui.last_motion_error = str(error)
+                ui.record_cycle(runtime, cycles)
                 ui.abort(str(error))
+            else:
+                ui.record_cycle(runtime, cycles)
             ui.report_runtime_pause()
             ui.report_tracking()
             cycles += 1
@@ -398,9 +461,11 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS):
                 next_tick += missed * period_ns
         if now >= next_report:
             report_started = time.monotonic_ns()
-            ui.report_status(runtime.status(include_target=False))
+            status = runtime.status(include_target=False)
+            ui.report_status(status)
             ui.loop_timing["last_status_ns"] = time.monotonic_ns() - report_started
             ui.loop_timing["last_status_started_ns"] = report_started
+            ui.log_runtime_status(status)
             next_report = now + 1_000_000_000
         wait_started = time.monotonic_ns()
         wait_ns = max(0, next_tick - wait_started)

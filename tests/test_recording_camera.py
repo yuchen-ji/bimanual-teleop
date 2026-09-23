@@ -314,8 +314,39 @@ class CameraTests(unittest.TestCase):
         rig, _rs, clock = self.prepared()
         for sequence in range(4, 94):
             rig._accept("camera_0", "rgb", Frame(clock, sequence))
-        with self.assertRaisesRegex(RuntimeError, "queue is full"):
+        with self.assertRaisesRegex(RuntimeError, r"queue is full.*queued=90/90"):
             rig._accept("camera_0", "rgb", Frame(clock, 94))
+        self.assertEqual(rig.status(), {
+            "queue_size": 90, "queue_capacity": 90,
+            "accepted": {"camera_0/rgb": 90}, "delivered": {},
+            "queue_full_count": 1, "delivery_mode": "record",
+        })
+
+    def test_suspended_delivery_drops_backlog_but_keeps_camera_health_current(self):
+        rig, _rs, clock = self.prepared()
+        rig._accept("camera_0", "rgb", Frame(clock, 4))
+        rig.suspend_delivery()
+        self.assertEqual(rig.poll(), [])
+        clock.now += 33_000_000
+        rig._accept("camera_0", "rgb", Frame(clock, 5))
+        self.assertEqual(rig.poll(), [])
+        self.assertEqual(rig._last[("camera_0", "rgb")][1], 5)
+        rig.resume_delivery()
+        clock.now += 33_000_000
+        rig._accept("camera_0", "rgb", Frame(clock, 6))
+        self.assertEqual([item[3].sequence for item in rig.poll()], [6])
+
+    def test_preview_delivery_copies_only_rgb_at_five_hz(self):
+        rig, _rs, clock = self.prepared(depth=True)
+        rig.preview_delivery()
+        for sequence in range(4, 14):
+            clock.now += 33_000_000
+            rig._accept("camera_0", "rgb", Frame(clock, sequence))
+            rig._accept("camera_0", "depth", Frame(clock, sequence))
+        frames = rig.poll()
+        self.assertEqual([(name, kind) for name, kind, _image, _record in frames],
+                         [("camera_0", "rgb"), ("camera_0", "rgb")])
+        self.assertEqual(rig.status()["delivery_mode"], "preview")
 
 
 if __name__ == "__main__":

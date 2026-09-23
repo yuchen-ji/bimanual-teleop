@@ -14,6 +14,8 @@ class RecordingUI(TeleopUI):
     def handle(self, key):
         key = key.lower()
         if key == "c":
+            if self.runtime_log is not None:
+                self.runtime_log.event("record_key", key="c", recorder=self.recorder.status())
             if self.recorder.error:
                 self.abort(self.recorder.error)
                 self.recorder.recover()
@@ -28,6 +30,8 @@ class RecordingUI(TeleopUI):
                 self.say(str(error), "warning")
             return
         if key in ("s", "x"):
+            if self.runtime_log is not None:
+                self.runtime_log.event("record_key", key=key, recorder=self.recorder.status())
             self.recorder.end(status="complete" if key == "s" else "discarded")
             return
         if (self.is_pause_key(key) or key in ("q", "\x04", "\x03")
@@ -60,6 +64,13 @@ class RecordingUI(TeleopUI):
         while self.recorder.notices:
             self.say(self.recorder.notices.pop(0))
         super().poll_operation()
+
+    def log_runtime_status(self, status):
+        if self.runtime_log is not None:
+            self.runtime_log.event("runtime_status", status=status,
+                                   host_loop=dict(self.loop_timing),
+                                   retained_cycles=len(self._cycle_history),
+                                   recorder=self.recorder.status())
 
     def report_runtime_pause(self):
         if getattr(self.runtime.state, "value", self.runtime.state) == "paused":

@@ -534,7 +534,11 @@ class EntryPointTests(unittest.TestCase):
         self.load_config.assert_not_called()
         self.module.preflight.assert_not_called()
         self.module.create_wuji_teleop.assert_not_called()
-        cli.configure_runtime_logging.assert_called_once_with(wuji=False, verbose=False)
+        cli.configure_runtime_logging.assert_called_once()
+        self.assertEqual(cli.configure_runtime_logging.call_args.kwargs["wuji"], False)
+        self.assertEqual(cli.configure_runtime_logging.call_args.kwargs["verbose"], False)
+        self.assertEqual(Path(cli.configure_runtime_logging.call_args.kwargs["log_file"]).parent,
+                         Path("logs"))
 
     def test_combined_single_arm_selection_fails_before_configuration_or_devices(self):
         for side in ("left", "right"):

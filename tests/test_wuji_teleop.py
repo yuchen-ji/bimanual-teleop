@@ -629,8 +629,13 @@ class RetargetTests(unittest.TestCase):
         self.assertEqual(runtime.session.user_name, "yuchen")
         self.assertIsNone(runtime.retargeters["left"]._session)
         self.assertEqual(runtime.gloves["left"].streams, ("skeleton",))
+        self.assertEqual(runtime.hands["left"].feedback_hz, 200)
         recorded = create_wuji_teleop(config, sides=("left",), sink=Sink())
         self.assertEqual(recorded.gloves["left"].streams, ("emf", "skeleton"))
+        configured = create_wuji_teleop({**config, "feedback_hz": 250}, sides=("left",))
+        self.assertEqual(configured.hands["left"].feedback_hz, 250)
+        with self.assertRaisesRegex(ValueError, "feedback_hz"):
+            create_wuji_teleop({**config, "feedback_hz": 0}, sides=("left",))
         for selection in ({"sdk_user_name": 123}, {"sdk_user_name": " "},
                           {"sdk_user_id": "ambiguous"}):
             with self.assertRaises(ValueError):

@@ -460,6 +460,9 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                                 "statistics": g.statistics} for s, g in self.gloves.items()},
                 "hands": {s: {"enabled": h.enabled, "health": asdict(h.health()),
                     "statistics": h.statistics,
+                    **({"feedback_hz": {"requested": h.feedback_hz,
+                                        "actual": dict(h.feedback_hz_actual)}}
+                       if hasattr(h, "feedback_hz") else {}),
                     "last_target": asdict(h.last_target) if include_target and h.last_target else None}
                     for s, h in self.hands.items()}}
 
@@ -501,7 +504,8 @@ def create_wuji_teleop(config, sides=("left", "right"), *, sink=None, hand_sink=
               streams=("emf", "skeleton") if sink is not None else ("skeleton",),
               timeout_s=config.get("glove_timeout_s", .25)) for s in sides}
     hands = {s: WujiHandDriver(s, config["devices"][s]["hand"],
-             timeout_s=config.get("hand_timeout_s", .5)) for s in sides}
+             timeout_s=config.get("hand_timeout_s", .5),
+             feedback_hz=config.get("feedback_hz", 200)) for s in sides}
     profile = ControlProfile(config.get("profile_id", "wuji-hand2"), "mit", dict(config["parameters"]))
     return WujiTeleop(gloves, hands, {s: WujiHandRetargeter(s) for s in sides},
         profile=profile, sink=sink, hand_sink=hand_sink,

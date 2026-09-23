@@ -1,7 +1,7 @@
 # Wuji Glove 与 Hand2 配置；使用 YAML 格式，支持 # 注释。
 # Hand2 固定使用 MIT 控制；profile_id 和 mode 无需填写，由程序内部维护。
 # 填已有标定用户名，例如 "yuchen"；"" 使用 SDK 默认用户，--user-name 可临时覆盖。
-sdk_user_name: "wangyongsen"
+sdk_user_name: "huhaoran"
 
 # 以下为当前本机使用的参数值，不代表厂家推荐参数；所有 20 个关节共用这一组参数。
 # 参数含义见 https://docs.wuji.tech/docs/zh/wuji-hand/latest/control-guide/。
@@ -16,6 +16,9 @@ parameters:
 # 手部遥操控制循环频率（Hz），填正数；120 表示目标每秒计算并发送 120 次。
 # 不改变手套传感器采样率；实际频率取决于运行负载。
 control_hz: 120
+# Hand2 关节状态与诊断的设备推送频率（Hz）。设备原生为 1000 Hz；遥操作仅需
+# 200 Hz，可显著降低四路反馈解码造成的调度压力。实际生效值由设备量化并写入运行日志。
+feedback_hz: 200
 # 每次接合或恢复后，从当前灵巧手姿态平滑过渡到手套目标的时长（秒），填正数。
 transition_s: 0.75
 # 手套骨架数据允许的最大帧龄（秒），填正数；超过此值时暂停跟随。

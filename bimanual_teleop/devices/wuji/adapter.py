@@ -531,9 +531,14 @@ class WujiHandDriver(_WujiSource):
     kind, main_stream = "hand", "joints"
 
     def __init__(self, side, address, *, manager=None, sdk=None, timeout_s=.5,
-                 clock=time.monotonic_ns):
+                 feedback_hz=200, clock=time.monotonic_ns):
+        if (isinstance(feedback_hz, bool) or not isinstance(feedback_hz, int)
+                or not 1 <= feedback_hz <= 1000):
+            raise ValueError("Hand2 feedback_hz must be an integer in [1, 1000]")
         super().__init__(side, address, manager=manager, sdk=sdk, timeout_s=timeout_s,
                          clock=clock)
+        self.feedback_hz = feedback_hz
+        self.feedback_hz_actual = {}
         self.enabled = False
         self.profile = None
         self.last_target = None
@@ -555,6 +560,17 @@ class WujiHandDriver(_WujiSource):
         self.metadata["command_feedforward_current_a"] = 0.
         self._subscriptions["joints"] = self._device.joint_states().subscribe()
         self._subscriptions["diagnostics"] = self._device.joint_diagnostics().subscribe()
+        # Hand2 publishes both streams at 1 kHz by default. Decoding four such
+        # streams in the hand process starves its 120 Hz controller and creates
+        # system-wide scheduling pressure. Both requests intentionally use the
+        # same value because the device rate is shared and last-writer-wins.
+        for stream, subscription in self._subscriptions.items():
+            actual = subscription.set_rate(self.feedback_hz)
+            if isinstance(actual, bool) or not isinstance(actual, int) or actual <= 0:
+                raise RuntimeError(f"Hand2 {stream} returned an invalid feedback rate: {actual!r}")
+            self.feedback_hz_actual[stream] = actual
+        self.metadata.update(feedback_hz_requested=self.feedback_hz,
+                             feedback_hz_actual=dict(self.feedback_hz_actual))
 
     def _decode(self, stream, frame, ref):
         joints = _ordered(frame.joints)

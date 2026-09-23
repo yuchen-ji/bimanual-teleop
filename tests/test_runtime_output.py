@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import io
+import json
 import logging
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import yaml
 from bimanual_teleop.common.console import (
     LiveProgress, StatusConsole, configure_runtime_logging, format_message, runtime_message,
 )
+from bimanual_teleop.common.runlog import RuntimeLog
 
 
 class TtyBuffer(io.StringIO):
@@ -57,6 +59,22 @@ class ConsoleBehaviorTests(unittest.TestCase):
             self.assertEqual(output.getvalue().count("故障原因"), 1)
             self.assertIn("连接失败", output.getvalue())
             sdk.set_log_level.assert_called_with("debug" if verbose else "error")
+
+    def test_structured_runtime_log_captures_debug_records_and_closes_cleanly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "runtime.jsonl"
+            run_log = configure_runtime_logging(log_file=path)
+            run_log.start(command="test", arguments={"path": Path("config.yaml")})
+            logging.getLogger("bimanual_teleop.test_output").debug("周期细节")
+            run_log.event("runtime_status", value=float("nan"))
+            run_log.close(result="ok")
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertEqual(rows[0]["event"], "session_start")
+        self.assertTrue(any(row["event"] == "python_log" and
+                            row["message"] == "周期细节" for row in rows))
+        self.assertTrue(any(row["event"] == "runtime_status" and
+                            row["value"] == "nan" for row in rows))
+        self.assertEqual(rows[-1]["event"], "session_end")
 
     def test_status_changes_are_deduplicated_and_warnings_are_throttled(self):
         stream = io.StringIO()
@@ -115,6 +133,32 @@ class ConsoleBehaviorTests(unittest.TestCase):
         logger = logging.getLogger("bimanual_teleop")
         self.assertEqual(len(logger.handlers), 1)
 
+    def test_pause_log_contains_retained_control_cycles_and_device_snapshots(self):
+        from bimanual_teleop.cli.runtime import TeleopUI
+
+        events = []
+        run_log = SimpleNamespace(event=lambda event, **details: events.append((event, details)))
+        executor = SimpleNamespace(timing_status={"elapsed_ns": 7})
+        arms = SimpleNamespace(
+            state="paused", cycle_timing={"elapsed_ns": 9}, executor=executor,
+            last_pause_diagnostic={"schema": "teleop_pause_v1",
+                                   "driver_stop": {"target_age_ms": 51.}})
+        hands = SimpleNamespace(status=lambda **_: {"worker_age_ns": 3,
+                                                     "snapshot_sequence": 4})
+        runtime = SimpleNamespace(
+            state="paused", last_error="watchdog expired", arms=arms, hands=hands,
+            status=lambda **_: {"state": "paused",
+                                "arms": {"last_error": "watchdog expired"}})
+        ui = TeleopUI(runtime, None, emit=lambda _: None, runtime_log=run_log)
+        ui.loop_timing = {"wake_lateness_ns": 5}
+        ui.record_cycle(runtime, 12)
+        ui.report_runtime_pause()
+        pauses = [details for event, details in events if event == "motion_pause"]
+        self.assertEqual(len(pauses), 1)
+        self.assertEqual(pauses[0]["preceding_cycles"][0]["cycle_index"], 12)
+        self.assertEqual(pauses[0]["diagnostic"]["driver_stop"]["target_age_ms"], 51.)
+        self.assertEqual(pauses[0]["diagnostic"]["hands"]["snapshot_sequence"], 4)
+
 
 class EntryBehaviorTests(unittest.TestCase):
     def setUp(self):
@@ -146,8 +190,13 @@ class EntryBehaviorTests(unittest.TestCase):
                         patch.object(entry, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop, \
                         redirect_stderr(io.StringIO()):
                     self.assertEqual(entry.main([*required, *flags]), 0)
-                    logging_setup.assert_called_once_with(
-                        wuji=entry is teleop_wuji_hand2, verbose=bool(flags))
+                    kwargs = logging_setup.call_args.kwargs
+                    self.assertEqual(kwargs["wuji"], entry is teleop_wuji_hand2)
+                    self.assertEqual(kwargs["verbose"], bool(flags))
+                    if entry is teleop_quest_tianji:
+                        self.assertEqual(Path(kwargs["log_file"]).parent, Path("logs"))
+                    else:
+                        self.assertNotIn("log_file", kwargs)
                     self.assertEqual(loop.call_args.args[1].verbose, bool(flags))
 
     def test_retained_entry_help_has_no_runtime_output_option(self):
@@ -208,7 +257,7 @@ class EntryBehaviorTests(unittest.TestCase):
             self.assertEqual(ready.run(bad), 1)
             self.assertEqual(list(directory.rglob("*")), [])
 
-    def test_quest_teleop_and_start_failure_do_not_create_runtime_records(self):
+    def test_quest_teleop_and_start_failure_create_only_diagnostic_logs(self):
         from bimanual_teleop.cli import teleop_quest_tianji as teleop
 
         with temporary_working_directory() as directory, redirect_stderr(io.StringIO()):
@@ -224,7 +273,10 @@ class EntryBehaviorTests(unittest.TestCase):
                 prepare.assert_called_once()
                 runtime.start.side_effect = RuntimeError("模拟断流")
                 self.assertEqual(teleop.main(["--arms-only"]), 1)
-            self.assertEqual(list(directory.rglob("*")), [])
+            files = sorted(path.relative_to(directory) for path in directory.rglob("*") if path.is_file())
+            self.assertEqual(len(files), 2)
+            self.assertTrue(all(path.parent == Path("logs") and path.suffix == ".jsonl"
+                                for path in files))
 
     def test_jog_and_home_motion_stub_and_failure_leave_no_records(self):
         from bimanual_teleop.control.arm import jog

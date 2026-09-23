@@ -348,7 +348,13 @@ class WujiProcess:
         health = self.health()
         status = dict(self._latest.status) if self._latest else {}
         status.update(state=self.state.value, last_error=self.last_error,
-                      health=asdict(health))
+                      health=asdict(health),
+                      process_pid=self._process.pid if self._process is not None else None,
+                      process_alive=self._process.is_alive() if self._process is not None else False,
+                      snapshot_sequence=self._latest.sequence if self._latest else None,
+                      snapshot_created_ns=self._latest.created_ns if self._latest else None,
+                      snapshot_valid_until_ns=self._latest.valid_until_ns if self._latest else None,
+                      snapshot_deadlines=dict(self._latest.deadlines) if self._latest else {})
         return status
 
     def glove_samples(self):

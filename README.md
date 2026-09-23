@@ -29,7 +29,7 @@ adb install -r quest_app/artifacts/quest-capture-debug.apk
 | 文件 | 需要设置的内容 |
 | --- | --- |
 | [天机配置](configs/tianji_teleop.yaml) | `controller_ip`、运动参数 `profile`、回位目标 `ready_pose`、参考系 `quest.coordinate_frame` |
-| [Wuji 配置](configs/wuji_teleop.yaml) | 左右设备地址 `devices`、已标定用户名 `sdk_user_name`；空用户名使用 SDK 默认用户 |
+| [Wuji 配置](configs/wuji_teleop.yaml) | 左右设备地址 `devices`、已标定用户名 `sdk_user_name`、Hand2 反馈频率 `feedback_hz`；空用户名使用 SDK 默认用户 |
 
 参数单位和数组顺序见 YAML 注释，修改后重启程序。联合遥操作读取两份配置，可用 `--tianji-config PATH`、`--wuji-config PATH` 指定其他文件。手套查看和遥操作支持 `--user-name NAME` 临时选择已有用户。
 
@@ -99,6 +99,12 @@ Hand2 双侧回零按先左后右执行，每侧到位并去使能后继续，�
 
 - `--viewer`：独立窗口显示启动时连接的全部 RealSense 彩色画面；无相机或设备占用时提示并继续。关闭窗口不影响遥操作，快捷键仍在终端输入。
 - `-v` / `--verbose`：显示调试日志、跟随受限提示及完整故障诊断。默认仅输出关键状态和故障；`NO_COLOR=1` 关闭颜色。
+
+双臂 Quest 遥操作每次启动都会创建详细的结构化运行日志，终端会打印绝对路径。默认位置为
+`logs/teleop_quest_tianji_<时间>_<进程>.jsonl`，也可用 `--log-file PATH` 指定尚不存在的文件。
+日志采用逐行 JSON，包含配置与进程信息、每秒设备状态、Wuji 原始新鲜度期限、录制进程状态、
+主循环调度及处理器时间。正常控制周期先保存在内存中；发生暂停时才把故障前约 2 秒的逐周期
+映射、左右臂求解、驱动提交、目标期限及看门狗停机快照一次性写入，避免日志写盘干扰 5 ms 控制循环。
 
 ### Quest 参考系与左右对应
 

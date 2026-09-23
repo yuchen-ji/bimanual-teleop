@@ -1,8 +1,20 @@
 """Optional GUI with a bounded latest-image mailbox, separate from recording."""
 
 import multiprocessing as mp
+import os
 import signal
 import time
+
+
+_PREVIEW_PERIOD_S = .2
+
+
+def _lower_priority(increment=10):
+    """Keep optional GUI drawing below capture and motion-control priority."""
+    try:
+        os.nice(increment)
+    except (AttributeError, OSError):
+        pass
 
 
 class _Images:
@@ -39,6 +51,9 @@ class _Images:
 
 def _run(images, stopped):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # The preview is spawned by the already de-prioritized recorder, so this
+    # additional increment makes GUI redraws the first work to yield under load.
+    _lower_priority()
     figure = None
     try:
         import matplotlib.pyplot as plt
@@ -65,7 +80,7 @@ def _run(images, stopped):
                     artist.set_data(pixels[index])
             figure.canvas.draw_idle()
             plt.pause(.001)
-            stopped.wait(.1)
+            stopped.wait(_PREVIEW_PERIOD_S)
     except Exception as error:
         from bimanual_teleop.common.console import print_message
         print_message(f"录制预览不可用：{error}；采集继续。", "warning")
@@ -89,7 +104,7 @@ class RecordingPreview:
         if now < self.next_update or not self.process.is_alive():
             return
         self.images.publish(frames)
-        self.next_update = now + .1
+        self.next_update = now + _PREVIEW_PERIOD_S
 
     def close(self):
         self.stopped.set()
