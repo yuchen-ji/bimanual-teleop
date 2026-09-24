@@ -333,14 +333,18 @@ class _WujiSource:
         previous = self._source_sequences.get(stream)
         delta = None if previous is None else (source_sequence - previous) % (1 << 32)
         advances = previous is None or 0 < delta < (1 << 31)
+        expected_step = self._expected_source_step(stream)
         stats = self._stats.setdefault(stream, {"count": 0, "source_gaps": 0,
                                                "first_ns": now, "latest_ns": now})
         stats["count"] += 1
         stats["latest_ns"] = now
-        if previous is not None and delta != 1:
+        if previous is not None and delta != expected_step:
             stats["source_gaps"] += 1
             self._event("wuji_source_gap", stream=stream, previous=previous,
-                        current=source_sequence, counter_bits=32)
+                        current=source_sequence, counter_bits=32,
+                        expected_step=expected_step,
+                        meaning=("unexpected transition after accounting for the configured "
+                                 "device-side stream rate"))
         if advances:
             self._source_sequences[stream] = source_sequence
         elif delta:
@@ -371,6 +375,9 @@ class _WujiSource:
 
     def _observe(self, stream, sample):
         pass
+
+    def _expected_source_step(self, stream):
+        return 1
 
     def get_latest(self):
         return self._latest
@@ -571,6 +578,10 @@ class WujiHandDriver(_WujiSource):
             self.feedback_hz_actual[stream] = actual
         self.metadata.update(feedback_hz_requested=self.feedback_hz,
                              feedback_hz_actual=dict(self.feedback_hz_actual))
+
+    def _expected_source_step(self, stream):
+        actual = self.feedback_hz_actual.get(stream)
+        return max(1, round(1000 / actual)) if actual else 1
 
     def _decode(self, stream, frame, ref):
         joints = _ordered(frame.joints)

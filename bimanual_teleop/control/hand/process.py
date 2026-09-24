@@ -66,12 +66,18 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose, r
     closing = False
     coordinator_expired = False
     timeout_ns = round(config.get("hand_timeout_s", .5) * 1e9)
+    observation_send_attempts = observation_send_successes = observation_send_drops = 0
 
     def snapshot():
         nonlocal sequence
         now = time.monotonic_ns()
         gloves = runtime.glove_samples()
-        status = runtime.status(include_target=False)
+        status = dict(runtime.status(include_target=False))
+        status["observation_transport"] = {
+            "send_attempts": observation_send_attempts,
+            "send_successes": observation_send_successes,
+            "send_drops": observation_send_drops,
+        }
         deadlines = {"process snapshot": now + timeout_ns}
         if runtime.threaded and (runtime.state == SystemState.ENGAGED or status.get("mode") == "hold"):
             completed = status.get("worker_completed_monotonic_ns")
@@ -132,10 +138,15 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose, r
 
             now_s = time.monotonic()
             if now_s >= next_snapshot:
+                observation_send_attempts += 1
                 try:
                     _send(observations, snapshot())
+                    observation_send_successes += 1
                 except BlockingIOError:
-                    pass  # Observations may be superseded; source times never change.
+                    # A later snapshot supersedes this one; retain an explicit
+                    # counter so stale observations can be attributed to the
+                    # child socket rather than device freshness.
+                    observation_send_drops += 1
                 next_snapshot = now_s + _SNAPSHOT_PERIOD_S
             wait_s = max(0, next_snapshot-time.monotonic())
             if operation is not None:
@@ -196,6 +207,10 @@ class WujiProcess:
         self._latest = None
         self._request_id = self._pause_id = 0
         self._pause_reason = self._failure = None
+        self._observation_sequence = None
+        self._observation_messages = 0
+        self._observation_sequence_gaps = 0
+        self._last_observation_received_ns = None
         self._closed = False
         self._requests = threading.Lock()
         self._send_lock = threading.Lock()
@@ -205,8 +220,16 @@ class WujiProcess:
         if not self._closed and not self._failure:
             self._heartbeat.value = time.monotonic_ns()
 
-    def _accept(self, value):
+    def _accept(self, value, *, observation=False):
         with self._read_lock:
+            if observation and value is not None:
+                previous = self._observation_sequence
+                if previous is None or value.sequence > previous:
+                    if previous is not None:
+                        self._observation_sequence_gaps += max(0, value.sequence - previous - 1)
+                    self._observation_sequence = value.sequence
+                    self._observation_messages += 1
+                    self._last_observation_received_ns = time.monotonic_ns()
             if value is not None and (self._latest is None or value.sequence > self._latest.sequence):
                 self._latest = value
 
@@ -217,7 +240,7 @@ class WujiProcess:
             # Limit work in a control tick even after the parent was delayed.
             for _ in range(32):
                 try:
-                    self._accept(_receive(self._observations))
+                    self._accept(_receive(self._observations), observation=True)
                 except BlockingIOError:
                     break
         except (OSError, EOFError, pickle.UnpicklingError) as error:
@@ -273,6 +296,12 @@ class WujiProcess:
                         raise RuntimeError(error)
                     return
             if not self._process.is_alive():
+                # The child can finish immediately after sending a final
+                # datagram. Drain that diagnostic before reporting only its
+                # exit code, which would hide the actual startup failure.
+                readable, _, _ = select.select([self._control], [], [], .05)
+                if readable:
+                    continue
                 raise RuntimeError(f"Wuji process exited (code {self._process.exitcode})")
 
     def start(self):
@@ -346,6 +375,7 @@ class WujiProcess:
 
     def status(self, *, include_target=True):
         health = self.health()
+        now = time.monotonic_ns()
         status = dict(self._latest.status) if self._latest else {}
         status.update(state=self.state.value, last_error=self.last_error,
                       health=asdict(health),
@@ -354,7 +384,15 @@ class WujiProcess:
                       snapshot_sequence=self._latest.sequence if self._latest else None,
                       snapshot_created_ns=self._latest.created_ns if self._latest else None,
                       snapshot_valid_until_ns=self._latest.valid_until_ns if self._latest else None,
-                      snapshot_deadlines=dict(self._latest.deadlines) if self._latest else {})
+                      snapshot_deadlines=dict(self._latest.deadlines) if self._latest else {},
+                      observation_transport_parent={
+                          "messages": self._observation_messages,
+                          "sequence": self._observation_sequence,
+                          "sequence_gaps": self._observation_sequence_gaps,
+                          "last_received_ns": self._last_observation_received_ns,
+                          "receive_age_ns": (now - self._last_observation_received_ns
+                                             if self._last_observation_received_ns is not None else None),
+                      })
         return status
 
     def glove_samples(self):

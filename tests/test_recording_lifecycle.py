@@ -2,6 +2,7 @@
 
 import json
 import multiprocessing as mp
+import os
 from pathlib import Path
 from queue import Empty, Queue
 import tempfile
@@ -14,7 +15,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import zarr
 
-from bimanual_teleop.recording.config import RecordingConfig
+from bimanual_teleop.recording.config import RecordingConfig, load_config
 from bimanual_teleop.recording.convert import _read_stream
 from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
@@ -61,19 +62,6 @@ class _Rig:
         self.closed.set()
 
 
-class _DelayedValue:
-    """Hold the real Queue feeder after put_nowait has already returned."""
-
-    def __init__(self, entered, release):
-        self.entered, self.release = entered, release
-
-    def __reduce__(self):
-        self.entered.set()
-        if not self.release.wait(5.):
-            raise RuntimeError("test feeder was not released")
-        return float, (.1,)
-
-
 class RecordingLifecycleTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -88,9 +76,11 @@ class RecordingLifecycleTests(unittest.TestCase):
         channel.active.value = False
         connection, child = mp.Pipe()
         seen = Queue()
-        def factory(*args):
+        def factory(*args, **kwargs):
+            del kwargs
             writer = EpisodeWriter(*args)
             append = writer.append
+            close = writer.close
             def observed(record):
                 if failure:
                     raise OSError("simulated disk failure")
@@ -99,12 +89,16 @@ class RecordingLifecycleTests(unittest.TestCase):
                 append(record)
                 seen.put(record)
             writer.append = observed
+            def close_with_status(end_ns, status="complete", reason=None):
+                close(end_ns, status, reason)
+                return status
+            writer.close = close_with_status
             return writer
         kine = _Kinematics()
         kine.model = SimpleNamespace(digest="test-model")
         for patcher in (patch("bimanual_teleop.recording.camera.CameraRig", return_value=rig),
                         patch("bimanual_teleop.devices.tianji.model.TianjiKinematics", return_value=kine),
-                        patch("bimanual_teleop.recording.storage.EpisodeWriter", side_effect=factory),
+                        patch("bimanual_teleop.recording.spool.RawEpisodeWriter", side_effect=factory),
                         patch("bimanual_teleop.recording.recorder.mp.parent_process",
                               return_value=SimpleNamespace(is_alive=parent_alive.is_set))):
             patcher.start()
@@ -136,6 +130,10 @@ class RecordingLifecycleTests(unittest.TestCase):
         with patch("bimanual_teleop.recording.recorder.os.nice",
                    side_effect=OSError("unsupported")):
             _lower_priority(5)
+
+    def test_worker_does_not_emit_periodic_diagnostics(self):
+        _channel_value, connection, _thread, _parent_alive, _rig, _seen = self.worker()
+        self.assertFalse(connection.poll(.05))
 
     def record(self, stamp, sequence=1, stream="hands/left"):
         arm = stream.startswith(("arms/", "arm_commands/"))
@@ -180,6 +178,71 @@ class RecordingLifecycleTests(unittest.TestCase):
         thread.join(2.)
         self.assertFalse(thread.is_alive())
         self.assertTrue(rig.closed.is_set())
+
+    def test_pause_resume_continues_episode_time_from_the_pause(self):
+        channel, connection, _, _, rig, seen = self.worker()
+        self.seed(channel, rig)
+        self.enqueue(channel, self.record(2_000, 1))
+        while seen.get(timeout=2.).time_ns != 2_000:
+            pass
+        connection.send(("pause", 2_500))
+        self.assertEqual(self.receive(connection)[0], "paused")
+        self.enqueue(channel, self.record(8_000, 2))
+        connection.send(("resume", 9_000))
+        self.assertEqual(self.receive(connection)[0], "resumed")
+        self.enqueue(channel, self.record(9_100, 3))
+        mapped = None
+        while mapped is None:
+            item = seen.get(timeout=2.)
+            if item.sequence == 3:
+                mapped = item
+            self.assertNotEqual(item.time_ns, 8_000)
+        self.assertEqual(mapped.time_ns, 2_600)
+
+    def test_engagement_starts_after_delay_and_reengagement_resumes(self):
+        recorder = self.coordinator()
+        recorder.poll = Mock(return_value=None)
+        recorder.notices = []
+        recorder.config = RecordingConfig(("a", "b", "c"), start_delay_s=5)
+        recorder.state = "idle"
+        recorder.begin = Mock(side_effect=lambda: setattr(recorder, "state", "starting"))
+        recorder.pause = Mock(side_effect=lambda: setattr(recorder, "state", "paused"))
+        recorder.resume = Mock(side_effect=lambda: setattr(recorder, "state", "resuming"))
+        runtime = SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
+        clock = {"now": 0.}
+        with patch("bimanual_teleop.recording.ui.time.monotonic", side_effect=lambda: clock["now"]):
+            ui = RecordingUI(runtime, None, recorder=recorder, emit=lambda _: None)
+            ui.poll_operation()
+            recorder.begin.assert_not_called()
+            clock["now"] = 5
+            ui.poll_operation()
+            recorder.begin.assert_called_once()
+            runtime.state = SystemState.PAUSED
+            ui.poll_operation()
+            recorder.pause.assert_called_once()
+            runtime.state = SystemState.ENGAGED
+            ui.poll_operation()
+            recorder.resume.assert_not_called()
+            clock["now"] = 10
+            ui.poll_operation()
+            recorder.resume.assert_called_once()
+        recorder.begin.assert_called_once()
+
+    def test_recording_config_reads_keys_and_rejects_duplicates(self):
+        config = load_config()
+        self.assertEqual((config.save_key, config.discard_key, config.quit_key, config.recover_key),
+                         ("s", "x", "q", "c"))
+        self.assertEqual(config.start_delay_s, 0)
+        self.assertEqual(config.frame_capacity, 256)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "recording.yaml"
+            path.write_text("cameras: [a, b, c]\ncontrols: {save_key: s, discard_key: s}\n",
+                            encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "distinct"):
+                load_config(path)
+            path.write_text("cameras: [a, b, c]\nframe_capacity: 8\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "frame_capacity"):
+                load_config(path)
 
     def test_slow_writer_cannot_ack_complete_while_valid_tail_records_are_lost(self):
         channel, connection, _, _, rig, _ = self.worker(delay=.002)
@@ -233,23 +296,20 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder._restart_required = False
         return recorder
 
-    def test_restart_keeps_counts_until_old_feeder_data_arrives_and_new_episode_saves(self):
+    def test_restart_drains_old_generation_from_shared_ring_before_new_episode_saves(self):
         recorder = Recorder(self.config)
         channel = recorder.channel
-        entered, release = threading.Event(), threading.Event()
         def cleanup_channels():
-            release.set()
             for queue in (channel.queue, channel.errors):
                 queue.close()
                 queue.join_thread()
         self.addCleanup(cleanup_channels)
-        old = Record("hands/left", 1001, 99, {"joint_pos": (_DelayedValue(entered, release),) * 20})
+        old = Record("hands/left", 1001, 99, {"joint_pos": (.1,) * 20})
         index = (STATE_STREAMS + COMMAND_STREAMS).index(old.stream)
         channel.sent[index], channel.consumed[index] = 4, 3
         channel.queue.put_nowait((6, old))
-        self.assertTrue(entered.wait(2.), "Queue feeder did not reach its delay")
         with patch.object(recorder.context, "Process", return_value=Mock()):
-            recorder._launch()  # A replacement worker starts before the old feeder sends.
+            recorder._launch()
         recorder.connection.close()
         self.assertEqual((channel.sent[index], channel.consumed[index]), (4, 3))
         channel.generation.value = 7
@@ -257,10 +317,6 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.seed(channel, rig)
         connection.send(("stop", 2000, "complete", None))
         rig.frame_set(3000)
-        try:
-            self.assertFalse(connection.poll(.2), "saved before the feeder delivered its tail")
-        finally:
-            release.set()
         self.assertEqual(self.receive(connection), ("saved", (str(self.path), "complete")))
         self.assertEqual(list(channel.sent), list(channel.consumed))
         self.assertEqual(channel.consumed[index], 5)
@@ -287,13 +343,13 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.poll()
         self.assertEqual(recorder.state, "idle")
 
-    def test_manual_pause_saves_fault_pause_fails_and_recovery_pauses_before_join(self):
+    def test_disengagement_pauses_the_episode_and_recovery_requires_disengagement(self):
         for mode in ("keyboard", "gesture", "fault", "recover", "broken_pipe"):
             with self.subTest(mode=mode):
                 recorder, runtime = self.coordinator(), SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
                 runtime.pause = lambda reason: setattr(runtime, "state", SystemState.PAUSED)
                 ui = RecordingUI(runtime, None, recorder=recorder, emit=lambda _: None)
-                recorder.recover = Mock(side_effect=lambda: self.assertEqual(runtime.state, SystemState.PAUSED))
+                recorder.recover = Mock(side_effect=lambda: self.assertNotEqual(runtime.state, SystemState.ENGAGED))
                 if mode == "keyboard":
                     ui.handle(" ")
                 elif mode == "gesture":
@@ -307,11 +363,16 @@ class RecordingLifecycleTests(unittest.TestCase):
                     self.assertEqual(runtime.state, SystemState.PAUSED)
                     self.assertTrue(recorder.channel.failed.is_set())
                 else:
+                    runtime.state = SystemState.READY
                     recorder.error = "writer unavailable"
                     ui.handle("c")
                     recorder.recover.assert_called_once()
-                sent, = recorder.connection.send.call_args_list
-                self.assertEqual(sent.args[0][2], "complete" if mode in ("keyboard", "gesture") else "failed")
+                    self.assertEqual(runtime.state, SystemState.READY)
+                    continue
+                self.assertEqual(recorder.connection.send.call_args.args[0][0], "pause")
+                self.assertFalse(any(
+                    call.args and call.args[0][0] == "stop"
+                    for call in recorder.connection.send.call_args_list))
 
     def test_stuck_process_shutdown_has_bounded_join_escalation(self):
         recorder = self.coordinator()
@@ -324,19 +385,21 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.assertIsNone(recorder.connection)
         self.assertTrue(recorder._restart_required)
 
-    def test_recording_failure_explains_recovery_once(self):
+    def test_recording_failure_explains_recovery_once_without_pausing_motion(self):
         recorder = self.coordinator()
         recorder.poll = Mock(return_value="Camera recording queue is full")
         runtime = SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
         runtime.pause = lambda reason: setattr(runtime, "state", SystemState.PAUSED)
         messages = []
+        recorder.end = Mock(wraps=recorder.end)
         ui = RecordingUI(runtime, None, recorder=recorder, emit=messages.append)
         ui.poll_operation()
         ui.poll_operation()
         self.assertEqual(sum("按 C 恢复采集" in message for message in messages), 1)
-        self.assertEqual(runtime.state, SystemState.PAUSED)
+        self.assertEqual(runtime.state, SystemState.ENGAGED)
+        recorder.end.assert_called_once_with(status="failed", reason="Camera recording queue is full")
 
-    def test_forced_or_abnormal_exit_refuses_channel_reuse_and_leaves_motion_paused(self):
+    def test_forced_or_abnormal_exit_refuses_channel_reuse_after_operator_disengages(self):
         for abnormal_exit in (False, True):
             with self.subTest(abnormal_exit=abnormal_exit):
                 recorder = self.coordinator()
@@ -350,8 +413,12 @@ class RecordingLifecycleTests(unittest.TestCase):
                 runtime.pause = lambda reason: setattr(runtime, "state", SystemState.PAUSED)
                 messages = []
                 ui = RecordingUI(runtime, None, recorder=recorder, emit=messages.append)
+                process_before = recorder.process
                 ui.handle("c")
-                self.assertEqual(runtime.state, SystemState.PAUSED)
+                self.assertEqual(runtime.state, SystemState.ENGAGED)
+                self.assertIs(recorder.process, process_before)
+                runtime.state = SystemState.READY
+                ui.handle("c")
                 self.assertFalse(channel.active.value)
                 self.assertTrue(recorder._restart_required)
                 self.assertIn("重新启动遥操作", recorder.error)

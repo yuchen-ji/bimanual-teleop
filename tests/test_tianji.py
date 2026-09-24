@@ -623,11 +623,14 @@ class TianjiDriverTests(unittest.TestCase, TianjiFixture):
             self.assertTrue(self.driver.engaged)
             report = self.events("tianji.engagement_mode_reported")[-1]
             self.assertGreater(report.details["elapsed_ms"], 30)
-            self.assertLessEqual(self.driver._deadline_ns - report.observed_monotonic_ns, 30_000_000)
+            self.assertGreater(self.driver._deadline_ns - report.observed_monotonic_ns,
+                               self.driver.watchdog_ns)
+            self.assertLessEqual(self.driver._deadline_ns - report.observed_monotonic_ns,
+                                 self.driver.engagement_timeout_ns)
             engage_call = next(args for name, args in self.native.calls if name == "engage")
             self.assertLessEqual(engage_call[2] - report.observed_monotonic_ns, 40_000_000)
-            # Fresh feedback alone does not extend the runtime target deadline.
-            deadline = time.monotonic() + .3
+            # Fresh feedback alone does not extend the first-target grace period.
+            deadline = time.monotonic() + .7
             while self.driver.engaged and time.monotonic() < deadline:
                 time.sleep(.002)
             self.assertFalse(self.driver.engaged)

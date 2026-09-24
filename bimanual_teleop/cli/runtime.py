@@ -113,8 +113,6 @@ class TeleopUI:
         if message == self._last_message:
             return
         self._last_message = message
-        if self.runtime_log is not None:
-            self.runtime_log.event("ui_message", level=level, message=str(message))
         if self.emit is None:
             print_message(message, level)
         else:
@@ -185,9 +183,6 @@ class TeleopUI:
         if not health.ready:
             self.say(self.waiting_message(health.detail), "warning")
             return False
-        if self.runtime_log is not None:
-            self.runtime_log.event("engage_requested", state=getattr(state, "value", state),
-                                   health=asdict(health))
         if self.background_engage:
             self.say("正在接合；Space / Q 可取消。")
             self._start_operation("engage")
@@ -212,8 +207,6 @@ class TeleopUI:
             self.say(f"请先暂停遥操作，再{home_hint}回位。", "warning")
             return False
         self.engage_pending = False
-        if self.runtime_log is not None:
-            self.runtime_log.event("home_requested", state=state)
         if self.gesture is not None:
             self.gesture.inhibit()
         cancel_hint = "Space" + (" / 摇滚手势" if self.gesture is not None else "")
@@ -250,8 +243,6 @@ class TeleopUI:
         self._last_error = None
         self._pause_logged = False
         self._cycle_history.clear()
-        if self.runtime_log is not None:
-            self.runtime_log.event("engaged", process=process_snapshot())
         self.say(self.following_message, "ready")
 
     def _run_operation(self):
@@ -362,11 +353,10 @@ class TeleopUI:
         })
 
     def log_runtime_status(self, status):
-        if self.runtime_log is not None:
-            self.runtime_log.event("runtime_status", status=status,
-                                   host_loop=dict(self.loop_timing),
-                                   retained_cycles=len(self._cycle_history),
-                                   process=process_snapshot())
+        # The UI still checks live health once per second, but normal operation
+        # does not serialize a full runtime snapshot.  The retained cycle ring
+        # and device state are emitted by _log_pause only after a fault.
+        return None
 
     def _reset_tracking_notice(self):
         self._tracking_limited_since = {}

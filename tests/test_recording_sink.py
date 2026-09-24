@@ -10,7 +10,7 @@ from unittest.mock import Mock
 
 from bimanual_teleop.devices.tianji.driver import TianjiDriver, TianjiJointCommand, decode_feedback
 from bimanual_teleop.devices.wuji.adapter import JOINT_NAMES, WujiHandDriver
-from bimanual_teleop.recording.sink import CaptureChannel, RecorderSink, STATE_STREAMS
+from bimanual_teleop.recording.sink import CaptureChannel, Record, RecorderSink, STATE_STREAMS
 from bimanual_teleop.types import (
     CommandEvent, CommandStatus, DeviceCommand, Event, JointState, JointTarget, Pose,
     Sample, SampleHeader, SampleRef,
@@ -139,11 +139,14 @@ class RecordingSinkTests(unittest.TestCase):
             (), 1_000_000_000, 1_050_000_000, "test")
         sink.try_event(Event("tianji_command_submitted", 1_008_000_000, "tianji", {"command": arm_command}))
         records = _drain(channel)
-        self.assertEqual([r.stream for r in records], ["hand_commands/left", "arm_commands/left"])
-        self.assertEqual([r.time_ns for r in records], [1_005_000_000, 1_008_000_000])
-        self.assertEqual(records[0].values, {"joint_pos": (.2,) * 20})
-        self.assertEqual(records[1].values["eef_pose"], (.3, .2, .1, 0., 0., 0., 1.))
-        self.assertEqual(records[1].values["joint_pos"], (.1,) * 7)
+        records = {record.stream: record for record in records}
+        self.assertEqual(set(records), {"hand_commands/left", "arm_commands/left"})
+        self.assertEqual(records["hand_commands/left"].time_ns, 1_005_000_000)
+        self.assertEqual(records["arm_commands/left"].time_ns, 1_008_000_000)
+        self.assertEqual(records["hand_commands/left"].values, {"joint_pos": (.2,) * 20})
+        self.assertEqual(records["arm_commands/left"].values["eef_pose"],
+                         (.3, .2, .1, 0., 0., 0., 1.))
+        self.assertEqual(records["arm_commands/left"].values["joint_pos"], (.1,) * 7)
         self.assertFalse(channel.failed.is_set())
 
     def test_full_queue_marks_recording_failed_without_poisoning_driver_observer(self):
@@ -151,12 +154,26 @@ class RecordingSinkTests(unittest.TestCase):
         driver = TianjiDriver("192.0.2.1")
         driver._sink = RecorderSink(channel)
         driver._on_feedback(_arm_packet(1, (1, 1), 1_000_000_000))
+        driver._on_feedback(_arm_packet(2, (2, 2), 1_006_000_000))
         self.assertTrue(channel.failed.is_set())
         self.assertIn("Full", channel.errors.get_nowait())
         self.assertIsNone(driver._observer_error)
         self.assertIsNone(driver._problem)
         self.assertTrue(driver.get_latest().header.valid)
-        self.assertEqual(len(_drain(channel)), 1)
+        self.assertEqual(len(_drain(channel)), 2)
+
+    def test_shared_rings_never_overwrite_unread_records(self):
+        channel = _channel(capacity=2)
+        sink = RecorderSink(channel, state_hz=1000.)
+        for index in range(3):
+            record = Record("hands/left", 1_000_000_000 + index * 1_000_000,
+                            index + 10, {"joint_pos": (float(index),) * 20})
+            sink._put(record)
+        self.assertTrue(channel.failed.is_set())
+        records = _drain(channel)
+        self.assertEqual([record.sequence for record in records], [10, 11])
+        self.assertEqual(records[0].values["joint_pos"], (0.,) * 20)
+        self.assertEqual(records[1].values["joint_pos"], (1.,) * 20)
 
     def test_invalid_force_or_closed_channels_do_not_raise_from_observer(self):
         for failure in (None, OSError("closed pipe"), ValueError("closed queue")):
@@ -167,8 +184,7 @@ class RecordingSinkTests(unittest.TestCase):
                 if failure is None:
                     value.wrench_raw[0] = math.nan
                 else:
-                    channel.queue = Mock()
-                    channel.queue.put_nowait.side_effect = failure
+                    channel.put_nowait = Mock(side_effect=failure)
                     channel.errors = Mock()
                     channel.errors.put_nowait.side_effect = failure
                 self.assertTrue(sink.try_publish(decode_feedback(value, "test")))

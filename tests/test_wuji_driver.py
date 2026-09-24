@@ -614,6 +614,19 @@ class WujiHandTests(unittest.TestCase):
         self.assertEqual(device.mit.get()[0].kp, 3.)
         self.assertEqual(device.disables, 0)
 
+    def test_device_rate_decimation_is_not_reported_as_source_loss(self):
+        driver, _, sink = self.opened()
+        for sequence in (5, 10):
+            driver._consume("joints", feedback(sequence), time.monotonic_ns())
+            driver._consume("diagnostics", diagnostics(sequence), time.monotonic_ns())
+        self.assertEqual(driver.statistics["joints"]["source_gaps"], 0)
+        self.assertEqual(driver.statistics["diagnostics"]["source_gaps"], 0)
+        self.assertFalse(any(event.kind == "wuji_source_gap" for event in sink.events))
+        driver._consume("joints", feedback(20), time.monotonic_ns())
+        self.assertEqual(driver.statistics["joints"]["source_gaps"], 1)
+        gap = next(event for event in sink.events if event.kind == "wuji_source_gap")
+        self.assertEqual(gap.details["expected_step"], 5)
+
     def test_missing_original_parameter_prevents_write(self):
         driver, device, _ = self.opened()
         device.effort.value[0] = None

@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import time
 
 from .sink import pose_values
 
@@ -27,14 +28,28 @@ class RGBVideo:
         self.stream.options = {"crf": "21", "preset": "ultrafast"}
         self.stream.thread_count = 2
         self.count = 0
+        self.write_count = self.write_total_ns = self.write_last_ns = self.write_max_ns = 0
 
     def write(self, rgb):
         import av
-        frame = av.VideoFrame.from_ndarray(rgb, format="rgb24")
-        frame.pts = self.count
-        for packet in self.stream.encode(frame):
-            self.container.mux(packet)
-        self.count += 1
+        started = time.monotonic_ns()
+        try:
+            frame = av.VideoFrame.from_ndarray(rgb, format="rgb24")
+            frame.pts = self.count
+            for packet in self.stream.encode(frame):
+                self.container.mux(packet)
+            self.count += 1
+        finally:
+            elapsed = time.monotonic_ns() - started
+            self.write_count += 1
+            self.write_total_ns += elapsed
+            self.write_last_ns = elapsed
+            self.write_max_ns = max(self.write_max_ns, elapsed)
+
+    def status(self):
+        return {"frames": self.count, "write_count": self.write_count,
+                "write_total_ns": self.write_total_ns,
+                "write_last_ns": self.write_last_ns, "write_max_ns": self.write_max_ns}
 
     def close(self):
         try:
@@ -59,6 +74,18 @@ class EpisodeWriter:
         self.videos = {}
         self.last_ns = {}
         self.counts = {}
+        self._timing = {
+            "append": {"count": 0, "total_ns": 0, "last_ns": 0, "max_ns": 0},
+            "flush": {"count": 0, "total_ns": 0, "last_ns": 0, "max_ns": 0},
+        }
+
+    def _timed(self, name, started):
+        elapsed = time.monotonic_ns() - started
+        values = self._timing[name]
+        values["count"] += 1
+        values["total_ns"] += elapsed
+        values["last_ns"] = elapsed
+        values["max_ns"] = max(values["max_ns"], elapsed)
 
     def prepare_rgb(self, cameras):
         """Open every encoder before live camera delivery starts."""
@@ -67,22 +94,26 @@ class EpisodeWriter:
                 self.videos[camera] = RGBVideo(self.path / f"{camera}.mp4")
 
     def append(self, record):
-        if record.time_ns < self.document["start_ns"]:
-            return
-        previous = self.last_ns.get(record.stream)
-        if previous is not None and record.time_ns <= previous:
-            raise ValueError(f"Non-increasing timestamps: {record.stream}")
-        self.last_ns[record.stream] = record.time_ns
-        values = dict(record.values)
-        if record.stream.startswith("arms/"):
-            side = record.stream.split("/")[1]
-            values["eef_pose"] = pose_values(self.kinematics.fk(side, values["joint_pos"]))
-        row = {"time_ns": record.time_ns, "sequence": record.sequence, **values}
-        pending = self.pending.setdefault(record.stream, [])
-        pending.append(row)
-        self.counts[record.stream] = self.counts.get(record.stream, 0) + 1
-        if len(pending) >= (8 if "image" in row else 128):
-            self.flush(record.stream)
+        started = time.monotonic_ns()
+        try:
+            if record.time_ns < self.document["start_ns"]:
+                return
+            previous = self.last_ns.get(record.stream)
+            if previous is not None and record.time_ns <= previous:
+                raise ValueError(f"Non-increasing timestamps: {record.stream}")
+            self.last_ns[record.stream] = record.time_ns
+            values = dict(record.values)
+            if record.stream.startswith("arms/"):
+                side = record.stream.split("/")[1]
+                values["eef_pose"] = pose_values(self.kinematics.fk(side, values["joint_pos"]))
+            row = {"time_ns": record.time_ns, "sequence": record.sequence, **values}
+            pending = self.pending.setdefault(record.stream, [])
+            pending.append(row)
+            self.counts[record.stream] = self.counts.get(record.stream, 0) + 1
+            if len(pending) >= (8 if "image" in row else 128):
+                self.flush(record.stream)
+        finally:
+            self._timed("append", started)
 
     def write_rgb(self, camera, image, record):
         if record.time_ns < self.document["start_ns"]:
@@ -98,19 +129,31 @@ class EpisodeWriter:
     def flush(self, stream):
         import numpy as np
         from numcodecs import Blosc
-        rows = self.pending.get(stream)
-        if not rows:
-            return
-        group = self.root.require_group(stream)
-        for key in rows[0]:
-            dtype = "i8" if key in ("time_ns", "sequence") else "u2" if key == "image" else "f8"
-            data = np.asarray([row[key] for row in rows], dtype=dtype)
-            if key not in group:
-                group.create_dataset(key, shape=(0, *data.shape[1:]), dtype=dtype,
-                    chunks=(1 if key == "image" else 256, *data.shape[1:]),
-                    compressor=Blosc(cname="zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
-            group[key].append(data)
-        rows.clear()
+        started = time.monotonic_ns()
+        try:
+            rows = self.pending.get(stream)
+            if not rows:
+                return
+            group = self.root.require_group(stream)
+            for key in rows[0]:
+                dtype = "i8" if key in ("time_ns", "sequence") else "u2" if key == "image" else "f8"
+                data = np.asarray([row[key] for row in rows], dtype=dtype)
+                if key not in group:
+                    group.create_dataset(key, shape=(0, *data.shape[1:]), dtype=dtype,
+                        chunks=(1 if key == "image" else 256, *data.shape[1:]),
+                        compressor=Blosc(cname="zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
+                group[key].append(data)
+            rows.clear()
+        finally:
+            self._timed("flush", started)
+
+    def status(self):
+        return {
+            "counts": dict(self.counts),
+            "pending": {stream: len(rows) for stream, rows in self.pending.items() if rows},
+            "timing": {name: dict(values) for name, values in self._timing.items()},
+            "videos": {name: video.status() for name, video in self.videos.items()},
+        }
 
     def close(self, end_ns, status="complete", reason=None):
         error = None

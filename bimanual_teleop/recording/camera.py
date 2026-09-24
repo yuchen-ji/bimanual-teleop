@@ -48,7 +48,7 @@ class CameraRig:
         self._preview_next_ns = {}
         self._pipelines, self._threads = [], []
         self._last, self._warm = {}, {}
-        self._accepted, self._delivered = {}, {}
+        self._accepted, self._delivered, self._discarded = {}, {}, {}
         self._queue_full_count = 0
         self._required = tuple((f"camera_{i}", kind) for i in range(3)
                                for kind in (("rgb", "depth") if i == 0 and config.main_depth
@@ -208,17 +208,27 @@ class CameraRig:
                 raise RuntimeError(
                     "Camera recording queue is full: "
                     f"queued={status['queue_size']}/{status['queue_capacity']}, "
-                    f"accepted={status['accepted']}, delivered={status['delivered']}") from error
+                    f"accepted={status['accepted']}, delivered={status['delivered']}, "
+                    f"discarded={status['discarded']}, backlog={status['backlog']}, "
+                    f"accounting_delta={status['accounting_delta']}") from error
             with self._lock:
                 self._accepted[key] = self._accepted.get(key, 0) + 1
 
     def status_locked(self):
+        keys = set(self._accepted) | set(self._delivered) | set(self._discarded)
+        backlog = {key: self._accepted.get(key, 0) - self._delivered.get(key, 0)
+                   - self._discarded.get(key, 0) for key in keys}
+        queue_size = self._queue.qsize()
         return {
-            "queue_size": self._queue.qsize(), "queue_capacity": self._queue.maxsize,
+            "queue_size": queue_size, "queue_capacity": self._queue.maxsize,
             "accepted": {f"{name}/{kind}": count
                          for (name, kind), count in self._accepted.items()},
             "delivered": {f"{name}/{kind}": count
                           for (name, kind), count in self._delivered.items()},
+            "discarded": {f"{name}/{kind}": count
+                          for (name, kind), count in self._discarded.items()},
+            "backlog": {f"{name}/{kind}": count for (name, kind), count in backlog.items()},
+            "accounting_delta": queue_size - sum(backlog.values()),
             "queue_full_count": self._queue_full_count,
             "delivery_mode": self._delivery_mode,
         }
@@ -230,14 +240,21 @@ class CameraRig:
     def _set_delivery(self, mode):
         if mode not in ("off", "preview", "record"):
             raise ValueError(f"Unknown camera delivery mode: {mode}")
+        discarded = {}
         with self._delivery_lock:
             self._delivery_mode = mode
             self._preview_next_ns.clear()
-        while True:
-            try:
-                self._queue.get_nowait()
-            except Empty:
-                break
+            while True:
+                try:
+                    item = self._queue.get_nowait()
+                except Empty:
+                    break
+                key = item[0], item[1]
+                discarded[key] = discarded.get(key, 0) + 1
+        if discarded:
+            with self._lock:
+                for key, count in discarded.items():
+                    self._discarded[key] = self._discarded.get(key, 0) + count
 
     def suspend_delivery(self):
         """Keep cameras healthy while dropping frames during non-recording disk stalls."""

@@ -50,6 +50,6 @@ local.properties
 # Local demonstration datasets
 /recordings/
 /datasets/
-/logs/
+# /logs/
 
 临时文件/

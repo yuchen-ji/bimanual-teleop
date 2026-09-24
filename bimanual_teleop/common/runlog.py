@@ -16,6 +16,55 @@ import threading
 import time
 
 
+def _read_key_values(path):
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    values = {}
+    for line in lines:
+        fields = line.split()
+        if len(fields) == 2:
+            try:
+                values[fields[0].rstrip(":")] = int(fields[1])
+            except ValueError:
+                values[fields[0].rstrip(":")] = fields[1]
+    return values
+
+
+def _read_schedstat(path):
+    try:
+        fields = Path(path).read_text(encoding="ascii").split()
+        runtime_ns, runqueue_wait_ns, timeslices = map(int, fields[:3])
+    except (OSError, UnicodeError, ValueError):
+        return None
+    return {"runtime_ns": runtime_ns, "runqueue_wait_ns": runqueue_wait_ns,
+            "timeslices": timeslices}
+
+
+def _read_pressure(resource_name):
+    try:
+        lines = Path(f"/proc/pressure/{resource_name}").read_text(encoding="ascii").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    result = {}
+    for line in lines:
+        fields = line.split()
+        if not fields:
+            continue
+        values = {}
+        for field in fields[1:]:
+            key, separator, value = field.partition("=")
+            if not separator:
+                continue
+            try:
+                values[key] = int(value) if key == "total" else float(value)
+            except ValueError:
+                values[key] = value
+        result[fields[0]] = values
+    return result
+
+
 def default_run_log_path(name="teleop_quest_tianji", directory="logs"):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return Path(directory) / f"{name}_{stamp}_{os.getpid()}.jsonl"
@@ -31,15 +80,31 @@ def process_snapshot():
         niceness = os.nice(0)
     except (AttributeError, OSError):
         niceness = None
+    try:
+        affinity = sorted(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        affinity = None
+    native_id = threading.get_native_id()
     return {
         "pid": os.getpid(), "thread": threading.current_thread().name,
+        "native_thread_id": native_id,
         "process_time_ns": time.process_time_ns(),
         "thread_time_ns": time.thread_time_ns(),
         "user_cpu_s": usage.ru_utime, "system_cpu_s": usage.ru_stime,
         "max_rss_kib": usage.ru_maxrss,
+        "minor_page_faults": usage.ru_minflt, "major_page_faults": usage.ru_majflt,
+        "input_blocks": usage.ru_inblock, "output_blocks": usage.ru_oublock,
         "voluntary_context_switches": usage.ru_nvcsw,
         "involuntary_context_switches": usage.ru_nivcsw,
         "load_average": load_average, "niceness": niceness,
+        "cpu_affinity": affinity,
+        "process_schedstat": _read_schedstat("/proc/self/schedstat"),
+        "thread_schedstat": _read_schedstat(f"/proc/self/task/{native_id}/schedstat"),
+        "cpu_pressure": _read_pressure("cpu"),
+        "io_pressure": _read_pressure("io"),
+        "memory_pressure": _read_pressure("memory"),
+        "process_io": _read_key_values("/proc/self/io"),
+        "cgroup_cpu": _read_key_values("/sys/fs/cgroup/cpu.stat"),
     }
 
 
@@ -113,9 +178,9 @@ class RuntimeLog:
                    cpu_count=os.cpu_count(), cwd=str(Path.cwd()),
                    process=process_snapshot(), **details)
 
-    def attach_python_logging(self, logger):
+    def attach_python_logging(self, logger, *, level=logging.WARNING):
         self._handler = _RuntimeLogHandler(self)
-        self._handler.setLevel(logging.DEBUG)
+        self._handler.setLevel(level)
         logger.addHandler(self._handler)
 
     def close(self, **details):

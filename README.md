@@ -30,8 +30,11 @@ adb install -r quest_app/artifacts/quest-capture-debug.apk
 | --- | --- |
 | [天机配置](configs/tianji_teleop.yaml) | `controller_ip`、运动参数 `profile`、回位目标 `ready_pose`、参考系 `quest.coordinate_frame` |
 | [Wuji 配置](configs/wuji_teleop.yaml) | 左右设备地址 `devices`、已标定用户名 `sdk_user_name`、Hand2 反馈频率 `feedback_hz`；空用户名使用 SDK 默认用户 |
+| [采集配置](configs/recording.yaml) | 相机序列号、按主机内存设置的 `frame_capacity`、接合后等待 `start_delay_s`、录制按键 |
 
-参数单位和数组顺序见 YAML 注释，修改后重启程序。联合遥操作读取两份配置，可用 `--tianji-config PATH`、`--wuji-config PATH` 指定其他文件。手套查看和遥操作支持 `--user-name NAME` 临时选择已有用户。
+参数单位和数组顺序见 YAML 注释，修改后重启程序。联合遥操作读取两份配置，可用 `--tianji-config PATH`、`--wuji-config PATH` 指定其他文件。手套查看和遥操作支持 `--user-name NAME` 临时选择已有用户。采集另用 `--recording-config PATH`。
+
+换到核数或内存不同的电脑时，CPU 核数不用配置：录制进程不绑定特定核心。需要改的是 [采集配置](configs/recording.yaml) 里的 `frame_capacity`。三路彩色加主视角深度时，每一帧约 3.22 MiB，一条开始后会按这个长度一直占用内存。默认 256 帧约 825 MiB，适合 16 GiB 且没有交换分区的主机。约 8 GiB 改为 128；约 16 GiB 保持 256；32 GiB 及以上先保持 256，只有运行日志出现「正式帧池已满」且仍有空闲内存时再加大。允许 16 到 2048，改完重新启动采集程序。具体档位写在该文件的注释里。
 
 ## 查看设备
 
@@ -114,18 +117,23 @@ Hand2 双侧回零按先左后右执行，每侧到位并去使能后继续，�
 
 ## 数据采集
 
+快速操作、离线整理和故障恢复见[数据采集快速使用说明](docs/recording_quickstart.md)。完整字段与时间语义见[数据采集指南](docs/data_collection.md)。
+
 ```bash
 # 双臂双手遥操作，同时启用原始数据采集和共享相机预览
 python scripts/teleop_quest_tianji.py --record --viewer
 
-# 采集后分别导出两种动作空间；输出路径不得已存在
+# 退出采集后先整理原始会话
+python scripts/finalize_recording.py --input recordings/<session>
+
+# 再分别导出两种动作空间；输出路径不得已存在
 python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_eef.zarr --action-space eef
 python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_joint.zarr --action-space joint
 ```
 
-接合后按 **C** 开始、**S** 保存、**X** 作废当前条；手动暂停保存，故障暂停标记不完整。三路 RGB 为 640×480、30 Hz，只有主 D435 默认采深度；低维状态默认记录 200 Hz，控制目标沿用机械臂 200 Hz、手部 120 Hz。相机序列号及输出位置见 [采集配置](configs/recording.yaml)。
+接合成功后按 `start_delay_s` 自动开始当前条；脱离只暂停，再次接合后继续同一条。**S** 保存、**X** 作废、**Q** 保存并退出。采集进程失败时先脱离，再按 **C** 恢复进程。S 保存的是待离线整理的原始条目；采集故障会结束当前条但不自动停止遥操作，设备安全故障仍会停止运动。三路 RGB 为 640×480、30 Hz，只有主 D435 默认采深度；低维状态默认记录 200 Hz。相机序列号、帧池长度和输出位置见[采集配置](configs/recording.yaml)。
 
-原始数据保持各流真实时间戳，离线统一到主 RGB 帧时间，导出 DP Zarr。字段、时间语义、恢复操作和训练接口见[数据采集指南](docs/data_collection.md)。已有环境补装依赖：`PIP_USER=false python -m pip install -e '.[recording]'`。
+原始数据保持各流真实时间戳；整理完成后再统一到主 RGB 帧时间并导出 DP Zarr。已有环境补装依赖：`PIP_USER=false python -m pip install -e '.[recording]'`。
 
 ## 手套标定
 

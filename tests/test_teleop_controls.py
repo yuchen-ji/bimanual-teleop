@@ -94,8 +94,9 @@ class ControlsTests(unittest.TestCase):
     def test_home_key_finishes_recording_before_stopping_and_moving(self):
         self.runtime.state = SystemState.ENGAGED
         recorder = Mock(poll=Mock(return_value=None), notices=[])
+        recorder.state = "recording"
         calls = Mock()
-        calls.attach_mock(recorder.end, "end")
+        calls.attach_mock(recorder.pause, "recorder_pause")
         calls.attach_mock(self.runtime.pause, "pause")
         calls.attach_mock(self.runtime.home, "home")
         ui = RecordingUI(self.runtime, None, recorder=recorder, home_enabled=True,
@@ -105,9 +106,9 @@ class ControlsTests(unittest.TestCase):
         ui._operation_thread.join(1.)
         ui.poll_operation()
         names = [call[0] for call in calls.mock_calls]
-        self.assertEqual(names[0], "end")
-        self.assertEqual(calls.mock_calls[0].kwargs, {})
-        self.assertLess(names.index("pause"), names.index("home"))
+        self.assertLess(names.index("pause"), names.index("recorder_pause"))
+        self.assertLess(names.index("recorder_pause"), names.index("home"))
+        recorder.end.assert_not_called()
         self.runtime.home.assert_called_once()
         self.runtime.engage.assert_not_called()
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
@@ -225,16 +226,17 @@ class ControlsTests(unittest.TestCase):
 
     def test_toggle_stop_finishes_recording_before_pause(self):
         recorder = Mock()
+        recorder.state = "recording"
         self.runtime.state = SystemState.ENGAGED
         calls = Mock()
-        calls.attach_mock(recorder.end, "end")
+        calls.attach_mock(recorder.pause, "recorder_pause")
         calls.attach_mock(self.runtime.pause, "pause")
         ui = RecordingUI(self.runtime, None, recorder=recorder, toggle_engagement_key="enter",
                          emit=lambda _: None)
         ui.handle("\r")
-        self.assertEqual(calls.mock_calls[0][0], "end")
-        self.assertEqual(calls.mock_calls[0].kwargs, {})
-        self.assertEqual(calls.mock_calls[-1][0], "pause")
+        self.assertEqual(calls.mock_calls[0][0], "pause")
+        self.assertEqual(calls.mock_calls[-1][0], "recorder_pause")
+        recorder.end.assert_not_called()
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
 
 

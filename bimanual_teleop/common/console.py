@@ -159,7 +159,11 @@ def configure_runtime_logging(*, wuji=False, verbose=False, log_file=None):
     logger.propagate = False
     run_log = RuntimeLog(log_file) if log_file is not None else None
     if run_log is not None:
-        run_log.attach_python_logging(logger)
+        # Routine debug/info messages are useful only in an explicitly verbose
+        # run.  Normal runtime logs retain warnings and errors, avoiding
+        # background JSON work for successful control cycles.
+        run_log.attach_python_logging(
+            logger, level=logging.DEBUG if verbose else logging.WARNING)
     if wuji:
         import wuji_sdk
         wuji_sdk.set_log_level("debug" if verbose else "error")

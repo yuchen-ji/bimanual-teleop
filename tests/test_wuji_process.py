@@ -174,7 +174,11 @@ class WujiProcessTests(unittest.TestCase):
         runtime.begin_follow()
         self.assertEqual(runtime.state, SystemState.ENGAGED)
         self.assertTrue(runtime.health().ready)
-        self.assertIsNone(runtime.status(include_target=False)["hands"]["left"]["last_target"])
+        status = runtime.status(include_target=False)
+        self.assertIsNone(status["hands"]["left"]["last_target"])
+        self.assertNotIn("process", status)
+        self.assertIn("send_drops", status["observation_transport"])
+        self.assertIn("sequence_gaps", status["observation_transport_parent"])
 
     def test_snapshot_keeps_original_source_identity_and_time(self):
         runtime = self.runtime({"fixed": True})

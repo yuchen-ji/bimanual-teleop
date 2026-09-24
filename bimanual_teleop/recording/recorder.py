@@ -15,7 +15,12 @@ from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
 
 
 def _lower_priority(increment):
-    """Let motion/control processes win CPU contention without requiring privileges."""
+    """Let motion/control processes win CPU contention without requiring privileges.
+
+    Do not also pin this process to a CPU subset. Encoder workers are spawned
+    afterward and inherit this niceness, while still being allowed to run on
+    idle cores. Motion control keeps the full affinity.
+    """
     if not increment:
         return
     try:
@@ -25,14 +30,16 @@ def _lower_priority(increment):
 
 
 def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increment=5):
+    from bimanual_teleop.common.affinity import apply_recording_affinity
     from bimanual_teleop.devices.tianji.model import TianjiKinematics
     from .camera import CameraRig
-    from .storage import EpisodeWriter
+    from .spool import RawEpisodeWriter
 
     # Terminal SIGINT belongs to the coordinator, which pauses motion and sends
     # bounded shutdown requests. Do not interrupt a child midway through I/O.
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+    apply_recording_affinity("background")
     _lower_priority(nice_increment)
     rig = CameraRig(config)
     writer = None
@@ -67,9 +74,23 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     "wrench": "Fx,Fy,Fz [N], Tx,Ty,Tz [Nm]; native sensor axes, no added compensation",
                     "state_time": "host SDK observation/dequeue monotonic_ns",
                     "command_time": "successful SDK submission; not physical execution",
-                    "camera_time": "GLOBAL_TIME frame timestamp mapped to host monotonic; not exposure midpoint"}
+                    "camera_time": "GLOBAL_TIME frame timestamp mapped to host monotonic; not exposure midpoint",
+                    "episode_time": "host monotonic with disengaged intervals removed; "
+                                    "resume continues from the pause"}
         connection.send(("ready", None))
         running = True
+        holding = False
+        pause_ns = None
+        time_offset_ns = 0
+        resume_after_ns = 0
+        pause_requested = None
+        stop_immediately = False
+
+        def episode_record(record):
+            if holding or record.time_ns < resume_after_ns:
+                return None
+            return replace(record, time_ns=record.time_ns - time_offset_ns)
+
         while running:
             parent = mp.parent_process()
             if parent is not None and not parent.is_alive():
@@ -87,46 +108,92 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     # but do not buffer frames that cannot belong to it.
                     rig.suspend_delivery()
                     try:
-                        writer = EpisodeWriter(path, start_ns, metadata, kinematics)
+                        writer = RawEpisodeWriter(path, start_ns, metadata, kinematics,
+                                                  frame_capacity=config.frame_capacity)
                         writer.prepare_rgb(rig.metadata)
                     finally:
                         rig.resume_delivery()
                     ending = None
                     camera_seen.clear()
+                    holding = False
+                    pause_ns = None
+                    time_offset_ns = 0
+                    resume_after_ns = 0
+                    stop_immediately = False
                     channel.active.value = True
                     connection.send(("recording", str(path)))
+                elif operation == "pause" and writer is not None and ending is None:
+                    _, pause_requested = message
+                elif operation == "resume" and writer is not None and holding and ending is None:
+                    _, resume_ns = message
+                    pause_episode = (pause_ns if pause_ns is not None else resume_ns) - time_offset_ns
+                    last_values = list(writer.last_ns.values())
+                    cut = max([pause_episode, *last_values]) if last_values else pause_episode
+                    # Host time at resume maps to the pause cut, so the gap is removed.
+                    time_offset_ns = resume_ns - cut
+                    resume_after_ns = resume_ns
+                    holding = False
+                    pause_ns = None
+                    rig.resume_delivery()
+                    channel.active.value = True
+                    connection.send(("resumed", None))
                 elif operation == "stop" and writer is not None:
                     channel.active.value = False
                     _, end_ns, status, reason = message
-                    ending = (end_ns, status, reason, time.monotonic() + .15)
+                    end_episode = end_ns - time_offset_ns
+                    if holding:
+                        last_values = list(writer.last_ns.values())
+                        pause_episode = (pause_ns if pause_ns is not None else end_ns) - time_offset_ns
+                        end_episode = max([pause_episode, *last_values]) if last_values else pause_episode
+                        ending = (end_episode, status, reason, time.monotonic())
+                        stop_immediately = True
+                        holding = False
+                    else:
+                        ending = (end_episode, status, reason, time.monotonic() + .15)
+                        stop_immediately = False
+                    pause_requested = None
                 elif operation == "close":
                     running = False
             # Camera input has the smaller fixed queue and cannot be replayed.
             # Service it before numeric streams so a Zarr flush cannot leave
             # all four 30 Hz image streams waiting behind a large state batch.
             for camera, kind, image, record in rig.poll():
-                camera_seen[record.stream] = record.time_ns
                 if kind == "rgb":
                     latest_images[camera] = image
-                if writer is not None and (ending is None or record.time_ns <= ending[0]):
+                mapped = episode_record(record)
+                if mapped is None or writer is None:
+                    continue
+                camera_seen[mapped.stream] = mapped.time_ns
+                if ending is None or mapped.time_ns <= ending[0]:
                     if kind == "rgb":
-                        writer.write_rgb(camera, image, record)
+                        writer.write_rgb(camera, image, mapped)
                     else:
-                        writer.append(replace(record, values={**record.values, "image": image}))
+                        writer.append(replace(mapped, values={**mapped.values, "image": image}))
             for _ in range(128):
                 try:
                     record_generation, record = channel.queue.get_nowait()
                 except Empty:
                     break
                 channel.consumed[(STATE_STREAMS + COMMAND_STREAMS).index(record.stream)] += 1
-                if writer is not None and record_generation == generation and (
-                        ending is None or record.time_ns <= ending[0]):
-                    writer.append(record)
+                mapped = episode_record(record)
+                if writer is not None and mapped is not None and record_generation == generation and (
+                        ending is None or mapped.time_ns <= ending[0]):
+                    writer.append(mapped)
+            if pause_requested is not None and writer is not None and ending is None:
+                pause_ns = pause_requested
+                pause_requested = None
+                holding = True
+                channel.active.value = False
+                if viewer:
+                    rig.preview_delivery()
+                else:
+                    rig.suspend_delivery()
+                connection.send(("paused", pause_ns))
             if preview is not None:
                 preview.update(latest_images)
             drained = (not any(channel.inflight) and list(channel.sent) == list(channel.consumed))
-            past_end = ending is not None and all(camera_seen.get(s, 0) >= ending[0]
-                                                   for s in required_cameras)
+            past_end = stop_immediately or (ending is not None and all(
+                camera_seen.get(s, 0) >= ending[0] for s in required_cameras))
             if ending is not None and time.monotonic() >= ending[3] and (
                     drained and past_end or time.monotonic() >= ending[3] + 2.):
                 end_ns, status, reason, _ = ending
@@ -142,12 +209,14 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                 # accumulating frames for the next, not-yet-started episode.
                 rig.suspend_delivery()
                 try:
-                    writer.close(end_ns, status, reason)
+                    status = writer.close(end_ns, status, reason)
                 finally:
                     if viewer:
                         rig.preview_delivery()
                 writer = None
                 ending = None
+                stop_immediately = False
+                holding = False
                 channel.active.value = False
                 connection.send(("saved", (path, status)))
             time.sleep(.001)
@@ -184,10 +253,15 @@ class Recorder:
         self.error = None
         self.notices = []
         self._restart_required = False
+        self._nvenc_checked = False
 
     @property
     def recording(self):
         return self.state in ("starting", "recording")
+
+    @property
+    def episode_open(self):
+        return self.state in ("starting", "recording", "paused", "resuming")
 
     def status(self):
         process = self.process
@@ -201,13 +275,14 @@ class Recorder:
             "generation": self.channel.generation.value,
             "sent": list(self.channel.sent), "consumed": list(self.channel.consumed),
             "inflight": list(self.channel.inflight),
+            "numeric_occupancy": self.channel.occupancy(),
         }
 
     def _launch(self):
         self.channel.failed.clear()
         self.error = None
-        # Keep cumulative counts: another process's Queue feeder may still hold
-        # old records. The worker consumes them but writes only its episode.
+        # Keep cumulative counters and any committed old-generation records.
+        # The replacement worker drains them but writes only its own generation.
         while True:
             try:
                 self.channel.errors.get_nowait()
@@ -225,6 +300,9 @@ class Recorder:
 
     def start(self):
         """Camera preflight before teleoperation is engaged."""
+        from .spool import preflight_nvenc
+        preflight_nvenc()
+        self._nvenc_checked = True
         self._launch()
         deadline = time.monotonic() + 15.
         while not self.ready:
@@ -261,10 +339,50 @@ class Recorder:
             self.state = "idle"
             self.error = "采集进程被强制终止，通信队列可能损坏；请退出并重新启动遥操作"
             return
+        from .spool import preflight_nvenc
+        preflight_nvenc()
+        self._nvenc_checked = True
         self._launch()
 
+    def pause(self):
+        """Keep the episode open and stop ingesting until resume."""
+        if self.state not in ("starting", "recording", "resuming"):
+            return
+        now = time.monotonic_ns()
+        self.channel.active.value = False
+        try:
+            self.connection.send(("pause", now))
+        except (OSError, EOFError):
+            self.state = "idle"
+            self.error = "录制进程暂停通道已断开"
+            self.channel.fail(self.error)
+            return
+        self.state = "paused"
+        self.notices.append("录制已暂停，重新接合后继续本条。")
+
+    def resume(self):
+        """Continue the paused episode. Timestamps continue from the pause."""
+        if self.state != "paused":
+            raise RuntimeError("当前没有暂停的录制")
+        if self.error:
+            raise ValueError("请先脱离遥操作，再恢复采集进程")
+        if not self.ready:
+            raise ValueError("采集相机尚未就绪")
+        now = time.monotonic_ns()
+        for stream, stamp in zip(STATE_STREAMS + COMMAND_STREAMS, self.channel.latest_ns):
+            if stamp == 0 or now - stamp > 100_000_000:
+                raise ValueError(f"等待新鲜的采集数据：{stream}")
+        try:
+            self.connection.send(("resume", now))
+        except (OSError, EOFError):
+            self.state = "idle"
+            self.error = "录制进程继续通道已断开"
+            self.channel.fail(self.error)
+            return
+        self.state = "resuming"
+
     def end(self, *, status="complete", reason=None):
-        if not self.recording:
+        if not self.episode_open:
             return
         self.channel.active.value = False
         if self.process is not None and self.process.is_alive():
@@ -290,10 +408,15 @@ class Recorder:
                         if self.state == "starting":
                             self.state = "recording"
                         self.notices.append(f"正在录制：{value}")
+                    elif kind == "resumed":
+                        if self.state == "resuming":
+                            self.state = "recording"
+                        self.notices.append("继续录制本条。")
                     elif kind == "saved":
                         self.state = "idle"
                         path, status = value
-                        label = {"complete": "已保存", "discarded": "已作废"}.get(status, "不完整")
+                        label = {"captured": "已采集，等待离线整理",
+                                 "complete": "已保存", "discarded": "已作废"}.get(status, "不完整")
                         self.notices.append(f"录制{label}：{path}")
             except (EOFError, OSError):
                 pass
@@ -308,7 +431,7 @@ class Recorder:
             self.ready = False
             self.state = "idle"
             self.error = self.error or "录制进程已退出"
-        if self.recording and not self.error:
+        if self.state == "recording" and not self.error:
             now = time.monotonic_ns()
             for stream, stamp in zip(STATE_STREAMS + COMMAND_STREAMS, self.channel.latest_ns):
                 if now - stamp > 500_000_000:
@@ -340,12 +463,12 @@ class Recorder:
 
     def close(self):
         self.end(status="failed", reason="退出时录制尚未结束")
-        deadline = time.monotonic() + 3.
+        # Encoder and depth workers close concurrently, but MP4 trailer and
+        # fsync completion can legitimately exceed the old three-second limit.
+        deadline = time.monotonic() + 20.
         while self.state == "saving" and time.monotonic() < deadline:
             self.poll()
             time.sleep(.01)
         self._stop_process()
-        self.channel.queue.close()
-        self.channel.queue.cancel_join_thread()
         self.channel.errors.close()
         self.channel.errors.cancel_join_thread()

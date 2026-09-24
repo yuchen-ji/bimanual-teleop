@@ -318,7 +318,8 @@ class CameraTests(unittest.TestCase):
             rig._accept("camera_0", "rgb", Frame(clock, 94))
         self.assertEqual(rig.status(), {
             "queue_size": 90, "queue_capacity": 90,
-            "accepted": {"camera_0/rgb": 90}, "delivered": {},
+            "accepted": {"camera_0/rgb": 90}, "delivered": {}, "discarded": {},
+            "backlog": {"camera_0/rgb": 90}, "accounting_delta": 0,
             "queue_full_count": 1, "delivery_mode": "record",
         })
 
@@ -327,6 +328,8 @@ class CameraTests(unittest.TestCase):
         rig._accept("camera_0", "rgb", Frame(clock, 4))
         rig.suspend_delivery()
         self.assertEqual(rig.poll(), [])
+        self.assertEqual(rig.status()["discarded"], {"camera_0/rgb": 1})
+        self.assertEqual(rig.status()["backlog"], {"camera_0/rgb": 0})
         clock.now += 33_000_000
         rig._accept("camera_0", "rgb", Frame(clock, 5))
         self.assertEqual(rig.poll(), [])
