@@ -8,7 +8,7 @@
 
 | 步骤 | 命令 | 必须 | 结果 |
 | --- | --- | --- | --- |
-| 采集 | `teleop_quest_tianji.py --record --viewer` | 是 | `recordings/<session>/episode_*/`，状态 `captured` |
+| 采集 | `teleop_quest_tianji.py --record --viewer` | 是 | session 根目录生成 `dataset.json`；条目在 `episode_*/`，状态 `captured` |
 | 整理 | `finalize_recording.py` | 是 | 生成 `raw.zarr`，状态 `complete`；删除作废条目 |
 | 试运行 | `convert_recording.py --dry-run` | 否 | 打印每条的等级、丢弃和修复，不写文件 |
 | 审片 | `review_recording.py` | 否 | `review.json`：剔除条目、决定暂停接缝是否接上 |
@@ -31,6 +31,7 @@ python scripts/convert_recording.py --input recordings/<session> \
 - 机械臂、灵巧手和三台 RealSense 周围无人员和障碍物；实体急停已释放且随手可按。
 - `nvidia-smi -L` 能列出显卡。采集只用 NVENC 硬件编码，检查不通过时程序会在机械臂运动前退出。
 - [采集配置](../configs/recording.yaml)中的相机序列号与实物一致，`frame_capacity` 已按主机内存设置。
+- `dataset.task` 填写本次任务，`dataset.camera_roles` 和 `dataset.collection_devices` 与相机安装位置、遥操作输入设备一致。
 - `recordings/` 所在磁盘空间充足，主视角原始深度约占 1.1 GB/分钟。
 
 ## 2. 启动
@@ -41,6 +42,8 @@ python scripts/teleop_quest_tianji.py --record --viewer
 ```
 
 程序依次做 NVENC 检查、相机检查、运动确认和初始回位，终端会打印本次运行日志的路径。
+
+首条开始创建时，在 `recordings/<session>/` 生成 `dataset.json`，记录任务、Tianji 机器人、三路相机角色与序列号、输入设备和 episode 相对路径列表。当前默认任务为 `Pick and place the car seat rails`；相机 0 为顶部，1 为左臂，2 为右臂腕部；输入设备为 Wuji-glove 和 Quest-3s 及手柄。
 
 ## 3. 采集
 
@@ -54,7 +57,7 @@ python scripts/teleop_quest_tianji.py --record --viewer
 | Q | 保存当前条并退出 |
 | Ctrl+C | 退出；当前条记为失败，不能导出 |
 
-- 换任务、回位或场景变化前先按 S，避免前后画面拼进同一条。
+- 回位或场景变化前先按 S，避免前后画面拼进同一条。换任务时按 Q 保存退出，修改 `dataset.task` 后重新启动，生成新的 session。
 - 保存时若仍在接合状态，不会自动开始新条；脱离后再接合。
 - 接合后提示"等待新鲜的采集数据"时无需操作，数据就绪后自动开始。
 
@@ -69,6 +72,7 @@ python scripts/finalize_recording.py --input recordings/<session>
 - 作废（X）的条目在这一步被**直接删除**，不可恢复；失败的条目保留以便排查。整理成功的条目才能导出。
 - 整理成功后，条目内的原始缓存 `raw_spool/` 移到 `raw_spools/<session>/<episode>`（相对当前目录），原处留符号链接；`--spool-archive DIR` 可改位置，但不能放在 `--input` 之内。
 - 某条失败时继续整理其余条目，最后以非零退出码结束；排除问题后重跑同一命令即可。
+- 整理结束后同步 `dataset.json` 中的 episode 列表，删除作废条目的索引并保留编号空缺。索引写入失败时会报错，修复后可重跑同一命令，包括全部条目都已删除的 session。
 
 ## 5. 可选：试运行与审片
 

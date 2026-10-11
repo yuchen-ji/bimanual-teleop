@@ -12,6 +12,7 @@ import time
 from uuid import uuid4
 
 from .episodes import CAPTURED, COMPLETE, DISCARDED, FAILED
+from .dataset_manifest import ensure_dataset_manifest, sync_dataset_episodes
 from .schema import DEPTH_STREAM, RGB_STREAMS
 from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
 
@@ -31,7 +32,8 @@ def _lower_priority(increment):
         pass
 
 
-def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increment=5):
+def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increment=5,
+            *, session=None, created_at=None):
     from bimanual_teleop.common.affinity import apply_recording_affinity
     from bimanual_teleop.devices.tianji.model import TianjiKinematics
     from .camera import CameraRig
@@ -44,6 +46,7 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
     apply_recording_affinity("background")
     _lower_priority(nice_increment)
     rig = CameraRig(config)
+    session = None if session is None else Path(session)
     writer = None
     preview = None
     failure = "录制未正常完成"
@@ -79,6 +82,9 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     "camera_time": "GLOBAL_TIME frame timestamp mapped to host monotonic; not exposure midpoint",
                     "episode_time": "host monotonic with disengaged intervals removed; "
                                     "resume continues from the pause"}
+        if session is not None and session.is_dir():
+            ensure_dataset_manifest(session, config, rig.metadata, created_at=created_at)
+            sync_dataset_episodes(session)
         connection.send(("ready", None))
         running = True
         holding = False
@@ -104,14 +110,21 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     if writer is not None:
                         raise RuntimeError("Previous episode has not finished")
                     _, generation, path, start_ns = message
+                    path = Path(path)
+                    if session is None:
+                        session = path.parent
+                    if path.parent != session:
+                        raise ValueError("Episode must belong to the current recording session")
                     # Zarr and codec initialization may take longer than the
                     # camera queue's intentional backpressure window.  No
                     # episode is active yet, so keep validating live cameras
                     # but do not buffer frames that cannot belong to it.
                     rig.suspend_delivery()
                     try:
+                        ensure_dataset_manifest(session, config, rig.metadata, created_at=created_at)
                         writer = RawEpisodeWriter(path, start_ns, metadata, kinematics,
                                                   frame_capacity=config.frame_capacity)
+                        sync_dataset_episodes(session)
                         writer.prepare_rgb(rig.metadata)
                     finally:
                         rig.resume_delivery()
@@ -247,8 +260,10 @@ class Recorder:
         self.context = mp.get_context("spawn")
         self.channel = CaptureChannel(self.context)
         self.sink = RecorderSink(self.channel, config.state_hz)
+        created = datetime.now().astimezone()
+        self.created_at = created.isoformat(timespec="seconds")
         self.session = Path(config.output_dir).resolve() / (
-            datetime.now().strftime("%Y%m%d_%H%M%S_") + uuid4().hex[:8])
+            created.strftime("%Y%m%d_%H%M%S_") + uuid4().hex[:8])
         self.process = self.connection = None
         self.ready = False
         self.state = "idle"
@@ -294,6 +309,7 @@ class Recorder:
         self.connection = parent
         self.process = self.context.Process(target=_worker,
             args=(self.config, self.sdk_root, self.metadata, self.channel, child, self.viewer),
+            kwargs={"session": str(self.session), "created_at": self.created_at},
             name="demonstration-recorder")
         self.process.start()
         child.close()

@@ -16,6 +16,8 @@ import numpy as np
 import zarr
 
 from bimanual_teleop.recording.config import RecordingConfig, load_config
+from bimanual_teleop.recording.dataset_manifest import (
+    ensure_dataset_manifest, read_dataset_manifest)
 from bimanual_teleop.recording.plan import read_stream
 from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
@@ -27,8 +29,10 @@ from tests.test_recording_storage import _Kinematics
 
 
 class _Rig:
-    def __init__(self):
-        self.metadata, self.closed = {}, threading.Event()
+    def __init__(self, config):
+        self.metadata = {f"camera_{index}": {"serial": serial}
+                         for index, serial in enumerate(config.cameras)}
+        self.closed = threading.Event()
         self.frames = Queue()
         self.delivery_events = []
 
@@ -69,9 +73,9 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.path = Path(temporary.name) / "episode"
         self.config = RecordingConfig(("main", "left", "right"), main_depth=False)
 
-    def worker(self, *, delay=0., failure=False, channel=None):
+    def worker(self, *, delay=0., failure=False, channel=None, start_episode=True):
         channel = _channel(512) if channel is None else channel
-        rig, parent_alive = _Rig(), threading.Event()
+        rig, parent_alive = _Rig(self.config), threading.Event()
         parent_alive.set()
         channel.active.value = False
         connection, child = mp.Pipe()
@@ -104,7 +108,9 @@ class RecordingLifecycleTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
         thread = threading.Thread(target=_worker,
-            args=(self.config, None, {}, channel, child, False, 0), daemon=True)
+            args=(self.config, None, {}, channel, child, False, 0),
+            kwargs={"session": str(self.path.parent), "created_at": "2026-10-11T12:00:00+08:00"},
+            daemon=True)
         thread.start()
         def cleanup():
             if thread.is_alive():
@@ -114,9 +120,10 @@ class RecordingLifecycleTests(unittest.TestCase):
             self.assertFalse(thread.is_alive(), "worker cleanup exceeded two seconds")
         self.addCleanup(cleanup)
         self.assertEqual(self.receive(connection), ("ready", None))
-        connection.send(("start", 7, str(self.path), 1000))
-        self.assertEqual(self.receive(connection), ("recording", str(self.path)))
-        self.assertEqual(rig.delivery_events, ["suspend", "suspend", "resume"])
+        if start_episode:
+            connection.send(("start", 7, str(self.path), 1000))
+            self.assertEqual(self.receive(connection), ("recording", str(self.path)))
+            self.assertEqual(rig.delivery_events, ["suspend", "suspend", "resume"])
         return channel, connection, thread, parent_alive, rig, seen
 
     def receive(self, connection):
@@ -134,6 +141,52 @@ class RecordingLifecycleTests(unittest.TestCase):
     def test_worker_does_not_emit_periodic_diagnostics(self):
         _channel_value, connection, _thread, _parent_alive, _rig, _seen = self.worker()
         self.assertFalse(connection.poll(.05))
+
+    def test_worker_registers_episode_before_recording_ack(self):
+        self.worker()
+        document = read_dataset_manifest(self.path.parent)
+        self.assertEqual(document["episodes"], [{"episode_id": self.path.name, "path": self.path.name}])
+        self.assertEqual(document["created_at"], "2026-10-11T12:00:00+08:00")
+        self.assertEqual(document["cameras"]["camera_0"],
+                         {"role": "overhead", "serial": "main", "streams": ["rgb"]})
+
+    def test_recovery_rebuilds_existing_index_before_ready(self):
+        cameras = _Rig(self.config).metadata
+        ensure_dataset_manifest(self.path.parent, self.config, cameras,
+                                created_at="2026-10-10T10:00:00+08:00")
+        previous = self.path.parent / "episode_000000"
+        previous.mkdir()
+        (previous / "episode.json").write_text('{"status": "failed"}', encoding="utf-8")
+        _, connection, thread, _, _, _ = self.worker(start_episode=False)
+        document = read_dataset_manifest(self.path.parent)
+        self.assertEqual(document["created_at"], "2026-10-10T10:00:00+08:00")
+        self.assertEqual(document["episodes"],
+                         [{"episode_id": previous.name, "path": previous.name}])
+        connection.send(("close",))
+        thread.join(2.)
+
+    def test_recovery_recreates_missing_dataset_manifest(self):
+        previous = self.path.parent / "episode_000000"
+        previous.mkdir()
+        (previous / "episode.json").write_text('{"status": "capturing"}', encoding="utf-8")
+        _, connection, thread, _, _, _ = self.worker(start_episode=False)
+        self.assertEqual(read_dataset_manifest(self.path.parent)["episodes"],
+                         [{"episode_id": previous.name, "path": previous.name}])
+        connection.send(("close",))
+        thread.join(2.)
+
+    def test_index_write_failure_fails_episode_without_recording_ack(self):
+        channel, connection, thread, _, _, _ = self.worker(start_episode=False)
+        with patch("bimanual_teleop.recording.recorder.sync_dataset_episodes",
+                   side_effect=OSError("dataset index disk failure")):
+            connection.send(("start", 7, str(self.path), 1000))
+            thread.join(2.)
+        self.assertFalse(thread.is_alive())
+        self.assertTrue(channel.failed.is_set())
+        self.assertFalse(channel.active.value)
+        document = json.loads((self.path / "episode.json").read_text())
+        self.assertEqual(document["status"], "failed")
+        self.assertIn("dataset index disk failure", document["reason"])
 
     def record(self, stamp, sequence=1, stream="hands/left"):
         arm = stream.startswith(("arms/", "arm_commands/"))
@@ -273,6 +326,8 @@ class RecordingLifecycleTests(unittest.TestCase):
                 self.assertTrue(rig.closed.is_set())
                 document = json.loads((self.path / "episode.json").read_text())
                 self.assertEqual(document["status"], "failed")
+                self.assertIn({"episode_id": self.path.name, "path": self.path.name},
+                              read_dataset_manifest(self.path.parent)["episodes"])
                 self.assertIn("simulated disk failure" if failure else "遥操作主进程已退出",
                               document["reason"])
 

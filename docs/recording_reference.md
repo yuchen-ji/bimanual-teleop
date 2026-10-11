@@ -29,8 +29,13 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 | `start_delay_s` | 接合后多久开始或继续录制，0～60 s，默认 0 |
 | `frame_capacity` | 每路图像帧池长度，16～2048，默认 256（约 825 MiB、8.5 s）；按主机内存设置 |
 | `controls` | 保存（S）、作废（X）、保存并退出（Q）、恢复采集进程（C）的按键 |
+| `dataset.task` | 本 session 的任务句子，非空；默认 `Pick and place the car seat rails` |
+| `dataset.camera_roles` | 三路相机的安装角色，默认 `overhead`、`left_arm`、`right_wrist`；序列号继续只由 `cameras` 绑定 |
+| `dataset.collection_devices` | 遥操作输入设备列表，每项包含 `model`、`role`、`sides` 和可选的 `components` |
 
 相机固定为 640×480、30 Hz：三路 RGB，深度只来自 `camera_0`。
+
+一个 session 使用一个任务句子；换任务须保存退出、修改配置并重新启动。旧采集配置省略 `dataset` 时使用上述默认任务与角色，以及 Wuji-glove、Quest-3s 及手柄的设备说明。
 
 ## 在线采集
 
@@ -80,16 +85,18 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 ### 目录
 
 ```text
-recordings/<YYYYmmdd_HHMMSS_8位随机>/episode_000000/
-  episode.json                  # 状态、[start_ns, end_ns)、各流计数、元数据
-  camera_0.mp4 … camera_2.mp4   # NVENC H.264，每个真实帧编码一次
-  raw_spool/
-    streams/<流名>.bin           # 流名中的 / 换成 __，如 arms__left.bin；int64 time_ns、int64 sequence、float64 数值，小端
-    cameras/camera_<i>_rgb.bin   # 每帧：int64 time_ns、int64 sequence、float64 source_time_ms
-    cameras/camera_0_depth.raw   # 启用深度时：逐帧 uint16 480×640
-    cameras/camera_0_depth.bin   # 深度帧时间表，格式同 RGB
-  raw.zarr/                     # 离线整理生成
-  review.json、preview.mp4      # 审片生成，可选
+recordings/<YYYYmmdd_HHMMSS_8位随机>/
+  dataset.json                  # session 元数据与 episode 相对路径索引
+  episode_000000/
+    episode.json                # 状态、[start_ns, end_ns)、各流计数、元数据
+    camera_0.mp4 … camera_2.mp4 # NVENC H.264，每个真实帧编码一次
+    raw_spool/
+      streams/<流名>.bin         # 流名中的 / 换成 __，如 arms__left.bin；int64 time_ns、int64 sequence、float64 数值，小端
+      cameras/camera_<i>_rgb.bin # 每帧：int64 time_ns、int64 sequence、float64 source_time_ms
+      cameras/camera_0_depth.raw # 启用深度时：逐帧 uint16 480×640
+      cameras/camera_0_depth.bin # 深度帧时间表，格式同 RGB
+    raw.zarr/                   # 离线整理生成
+    review.json、preview.mp4    # 审片生成，可选
 ```
 
 MP4 的播放时间不作同步依据，每帧真实时间在 `camera_<i>_rgb.bin` 中，整理后写入 `raw.zarr`。条目编号在一次运行内递增，C 恢复后也不重复。
@@ -106,6 +113,12 @@ MP4 的播放时间不作同步依据，每帧真实时间在 `camera_<i>_rgb.bi
 
 `episode.json` 的 `metadata` 保存天机与 Wuji 配置、采集配置、相机内参（深度另含到 RGB 的外参和 `depth_scale`）、运动学模型摘要和各字段说明。
 
+根目录的 `dataset.json` 使用独立的 `schema_version: 1` 和 `format: tianji_raw_dataset`。其中 `dataset_id` 复用 session 目录名，`created_at` 是带时区的创建时间，`robot.name` 为 `Tianji`；`task`、相机角色和输入设备来自采集配置。相机序列号来自启动结果，`streams` 按实际启用的 RGB／深度生成。`collection_devices` 描述输入来源，当前不会额外保存完整手套骨架或 Quest 原始跟踪流。
+
+`episodes` 只保存 `episode_id` 和相对 `path`，状态、时间范围和计数仍由各条 `episode.json` 管理。索引在 episode 创建和采集进程恢复时核对，在离线整理结束后同步；隐藏的整理临时目录不登记。暂停续录沿用原条目，失败条目保留，作废目录实际删除后从索引移除，其余条目不重编号。深度写盘与视频编码路径不增加逐帧 JSON 操作。
+
+恢复采集进程时复用 dataset 标识和创建时间，并拒绝任务、角色、设备或相机映射与现存 manifest 不一致的情况。目录整体移动后标识保持不变，相对路径仍可解析。没有 `dataset.json` 的旧数据继续按 `episode.json` 发现和转换，离线整理不会自动回填任务信息。
+
 ## 离线整理
 
 ```bash
@@ -118,6 +131,7 @@ python scripts/finalize_recording.py --input recordings/<session> [--spool-archi
 - 结果先写临时目录再原子替换。失败时条目保持 `captured` 并记录 `finalize_error`，修复后重跑即可。
 - 成功后 `raw_spool/` 移到 `<spool-archive>/<session>/<episode>`（默认 `./raw_spools`，不得位于 `--input` 内），原处留符号链接。跨文件系统时先完整复制再删除，中断后重跑可继续。转换只读 `raw.zarr` 和 MP4。
 - `--refinalize` 把 `complete` 条目改回 `captured` 并从 `raw_spool` 重建 `raw.zarr`；符号链接失效时到 `--spool-archive` 中查找，仍找不到则保持 `complete` 并报错。
+- 整理结束后，根据现存条目同步每个 session 的 dataset 索引。索引写入失败会使报告返回失败；重跑可修复索引，即使上次已删除最后一条作废条目。空的旧目录没有 dataset manifest 时仍按“未找到 episode.json”报错。
 
 ### raw.zarr
 

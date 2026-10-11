@@ -12,6 +12,7 @@
 - `common/runlog.py`：结构化运行日志。
 - `recording/`：相机采集、原始写盘、离线整理、审片和 DP 转换（含质量检查）。离线部分按职责分层：
   - `schema.py` 定义流、字段、相机和分辨率，`episodes.py` 定义条目状态和递归发现；其他模块不再写死这些值。
+  - `dataset_manifest.py` 管理 session 根目录的任务、机器人、输入设备、相机角色和 episode 相对路径索引；创建与恢复时由录制后台更新，离线整理结束后核对索引。动态状态和标定快照仍归各条 `episode.json` 管理。
   - `timeline.py` 是纯 numpy 的对齐原语、暂停识别和时间网格，不读 zarr 和视频。
   - `policy.py` 把 strict 和 repair 表达为同一种 `ConversionPolicy`，未指定配置时读 `configs/recording_conversion.yaml`（repair）；`plan.py` 按策略为一条数据生成 `EpisodePlan`（查询时刻、相机匹配、逐原因的有效性、片段、暂停，以及报告要用的各路原始时间），不写盘。
   - `quality.py` 从计划生成帧数去向（首尾裁剪、中间剔除、缺帧复用、放宽插值、暂停）和原始流健康统计，按 `configs/recording_quality.yaml` 定级，并做跨条目元数据比较；`convert.py` 遍历条目，dry-run 与正式转换走同一流程，正式转换才解码、写 zarr 和原子发布。

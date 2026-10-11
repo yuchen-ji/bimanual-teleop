@@ -10,6 +10,7 @@ import shutil
 
 from bimanual_teleop.common.console import EpisodeProgress
 
+from .dataset_manifest import find_dataset_sessions, sync_dataset_episodes
 from .episodes import (CAPTURED, COMPLETE, DISCARDED, FAILED, FINALIZING, MANIFEST,
                        episode_label, find_episodes, read_manifest)
 from .schema import CAMERAS, DEPTH_SHAPE, DEPTH_STREAM, MAIN_CAMERA, RGB_STREAMS, STREAM_FIELDS, rgb_stream
@@ -242,7 +243,8 @@ def finalize_recordings(path, *, sdk_root=None, spool_archive=None, refinalize=F
     progress = EpisodeProgress(enabled=False) if progress is None else progress
     source = Path(path).resolve()
     episodes = find_episodes(source)
-    if not episodes:
+    sessions = find_dataset_sessions(source)
+    if not episodes and not sessions:
         raise ValueError(f"未找到 episode.json：{source}")
     if spool_archive is not None:
         archive = Path(spool_archive).expanduser().resolve()
@@ -283,4 +285,10 @@ def finalize_recordings(path, *, sdk_root=None, spool_archive=None, refinalize=F
             progress.finish_episode()
         report["complete"] += status == COMPLETE
         report["episodes"].append(str(episode))
+    for session in sessions:
+        try:
+            sync_dataset_episodes(session)
+        except (OSError, ValueError) as error:
+            report["failed"] += 1
+            report["errors"].append((str(session), str(error)))
     return report

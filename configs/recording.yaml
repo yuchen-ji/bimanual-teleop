@@ -12,6 +12,24 @@ output_dir: recordings
 # 接合成功后再等多久开始或继续本条。0.0 表示一接合就录。
 start_delay_s: 0.0
 
+# 每个 session 的任务和设备说明；修改任务后重新启动采集，生成新的 session。
+dataset:
+  task: "Pick and place the car seat rails"
+  # 只描述安装位置；序列号仍由上面的 cameras 按顺序绑定。
+  camera_roles:
+    camera_0: overhead # 顶部相机
+    camera_1: left_arm # 左臂相机
+    camera_2: right_wrist # 右臂腕部相机
+  # 遥操作输入来源说明，不表示保存了这些设备的完整原始流。
+  collection_devices:
+    - model: Wuji-glove
+      role: finger_motion_input
+      sides: [left, right]
+    - model: Quest-3s
+      role: wrist_pose_input
+      components: [headset, left_controller, right_controller]
+      sides: [left, right]
+
 # 正式图像帧池长度（帧）。一条开始时按此长度分配共享内存，并在本条结束前一直占用。
 # 三路 RGB 加主视角深度时，每一帧约 3.22 MiB。下面的 256 帧约 825 MiB，30 Hz 下约 8.5 秒。
 # 这是按 16 GiB、无交换分区的主机留出的：控制进程和页缓存还要使用其余内存。
