@@ -1,0 +1,80 @@
+schema_version: 1
+runtime:
+  physics_hz: 240
+  control_hz: 120
+  camera_hz: 30
+  preview_hz: 15
+  input_timeout_ms: 100
+  command_timeout_ms: 250
+  engine_feedback_timeout_ms: 500
+  max_clock_uncertainty_ms: 10
+  max_linear_speed_m_s: 0.15
+  max_angular_speed_rad_s: 0.5
+  joint_speed_rad_s: 1.0
+  hand_speed_rad_s: 3.0
+  frame_capacity: 256
+network:
+  bind: 127.0.0.1
+  input_port: 5556
+  event_port: 5557
+  preview_port: 8080
+  engine_port: 5558
+  token: ""  # Set a shared nonempty token before binding operator ports to a LAN interface.
+robot:
+  urdf: assets/generated/robot.urdf
+  world_yaw_deg: 90
+  ready_deg:
+    left: [30, -60, -34, -52, 30, 12, 4]
+    right: [-30, -60, 34, -52, -30, 12, -4]
+  hand_mount_rpy:
+    # Hand CAD fingers extend along -Z; Tianji flange points outward along +Z.
+    left: [3.141592653589793, 0, 0]
+    right: [3.141592653589793, 0, 0]
+  arm_stiffness: 400
+  arm_damping: 40
+  crossed_controllers: true
+scene:
+  table_center: [0.60, 0, 0.725]
+  table_size: [0.90, 1.65, 0.05]
+  fixture_origin: [0.50, 0, 0.75]
+  bin_centers: [[0.45, 0.52, 0.75], [0.45, -0.52, 0.75]]
+  bin_inner_size: [0.45, 0.46, 0.10]
+  bin_wall: 0.01
+rail:
+  size_m: [0.400, 0.045, 0.025]
+  hole_spacing_m: 0.211
+  hole_diameter_m: 0.010
+  pin_diameter_m: 0.006
+  hole_segments: 32
+  mass_kg: 0.8
+  mass_is_assumption: true
+  contact_offset_m: 0.0002
+  rest_offset_m: 0
+  friction: 0.5
+  finger_friction: 0.8
+  initial_center: [0.45, 0.52, 0.7725]
+cameras:
+  width: 640
+  height: 480
+  horizontal_fov_deg: 70
+  main_depth: false
+operator:
+  quest_serial: null
+  sdk_user_name: ""
+  gloves:
+    left: "192.168.1.100:50001"
+    right: "192.168.1.101:50001"
+  pedal_device: null  # Optional /dev/input/by-id/...-event-kbd, exclusive to this client.
+  keys:
+    enter: toggle
+    space: pause
+    b: boundary
+    s: save
+    x: discard
+    h: home
+    r: reset
+    q: quit
+paths:
+  recordings: data/recordings
+  datasets: data/datasets
+  runtime: .runtime

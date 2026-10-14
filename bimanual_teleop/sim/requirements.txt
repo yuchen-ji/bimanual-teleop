@@ -1,0 +1,5 @@
+# Install only in the existing bimanual-teleop Conda environment.
+pyzmq==26.4.0
+msgpack==1.1.1
+trimesh==4.7.4
+mapbox-earcut==1.0.3

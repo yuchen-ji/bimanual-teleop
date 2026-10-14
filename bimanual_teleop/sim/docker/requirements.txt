@@ -1,0 +1,11 @@
+# Extra dependencies inside the official Python 3.11 runtime, not the host.
+pyzmq==26.4.0
+msgpack==1.1.1
+trimesh==4.7.4
+PyYAML==6.0.2
+# Optional local recording uses the same writer and schema as the host bridge.
+av==16.1.0
+zarr==2.18.3
+numcodecs==0.13.1
+asciitree==0.3.3
+fasteners==0.20

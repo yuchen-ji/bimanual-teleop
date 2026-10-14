@@ -1,0 +1,11 @@
+# Copy inside sim/configs, use the same token on server and operator PC.
+network:
+  bind: 0.0.0.0
+  token: CHANGE_ME_RANDOM_TOKEN
+operator:
+  sdk_user_name: ""
+  quest_serial: null
+  gloves:
+    left: "192.168.1.100:50001"
+    right: "192.168.1.101:50001"
+  pedal_device: null

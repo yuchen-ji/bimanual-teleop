@@ -1,0 +1,16 @@
+flowchart TB
+  CFG["场景配置 + 机器人 / 物体模型"] --> SCENE["构建 Isaac 场景"]
+  ACTION["本地动作源<br/>保持待机 或 JSON 关节轨迹"] --> SIM["Isaac 物理步进<br/>执行关节目标 / 计算接触与运动"]
+  SCENE --> SIM
+  SIM --> VIEW["Isaac 原生视口 → Remmina 桌面<br/>观察场景，不作为学习图像"]
+  SIM --> OBS["实际状态 + 已执行目标<br/>关节 / TCP / 反力 / 导轨 / tick"]
+  SIM --> RGB["加 --record 才启用<br/>头部 + 左腕 + 右腕同步 RGB"]
+  OBS --> REC["同一进程内记录器<br/>MP4 + raw.zarr + events + 源 UUID"]
+  RGB --> REC
+  B["可选：原生界面 B 键<br/>只记边界，持续录制"] --> REC
+  REC --> EXP["离线命名 / 分段 / 导出<br/>完整任务 或 多个子任务"]
+  POLICY["未来：策略模型 / 规划器<br/>当前未接入"] -.-> ACTION
+  classDef core fill:#e8f6eb,stroke:#3e8551,color:#214329;
+  classDef data fill:#edf4ff,stroke:#477bb8,color:#21364f;
+  class SCENE,SIM core;
+  class OBS,RGB,REC,EXP data;

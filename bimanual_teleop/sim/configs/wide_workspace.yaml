@@ -1,0 +1,6 @@
+# Same robot and rail task, with a wider table and shifted bins.
+scene:
+  table_size: [1.0, 1.8, 0.05]
+  bin_centers: [[0.5, 0.58, 0.75], [0.5, -0.58, 0.75]]
+rail:
+  initial_center: [0.5, 0.58, 0.7725]

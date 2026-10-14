@@ -1,0 +1,6 @@
+__pycache__/
+data/
+.runtime/
+assets/source/
+assets/generated/
+*.log
