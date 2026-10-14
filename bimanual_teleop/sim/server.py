@@ -129,7 +129,7 @@ class SimServer:
                     "assets": manifest, "asset_signature": manifest.get("robot_signature", manifest["robot_urdf_sha256"]),
                     "joint_names": list(self.model.names), "clock": "simulation nanoseconds; no pause compression",
                     "eef_frames": "each shoulder joint-origin base -> flange; XYZW",
-                    "wrench": "incoming fixed-joint force on each hand mount, local mount frame, N and N.m; includes gravity/inertia"}
+                    "wrench": "incoming fixed-joint reaction at force-sensor input (legacy: hand mount); local link frame, N and N.m; includes gravity/inertia and tool masses"}
         metadata["config"]["network"]["token"] = "[redacted]"
         self.recorder = SimRecorder(path, metadata, self.config["cameras"]["width"], self.config["cameras"]["height"], codec=self.codec)
         self.latest_boundary = None

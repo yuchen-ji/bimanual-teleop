@@ -13,7 +13,7 @@ sudo apt update
 sudo apt install -y curl ca-certificates libarchive-tools squashfs-tools e2fsprogs util-linux fuse3
 ```
 
-把**完整项目**复制到新设备，例如 `$HOME/projects/bimanual-teleop`。截至本次整理，sim 目录仍未提交，不能假定克隆旧仓库已有本次代码；独立复制 sim 也缺少它复用的项目模块。镜像 / 数据被忽略 Git，迁移时另行保留。
+从包含本次仿真资源的仓库版本克隆完整项目（例如当前的 `wys/sim` 分支）到新设备。`assets/source/` 和 `assets/generated/` 均由 Git 跟踪，包含源 CAD、最小机器人与手部 URDF / STL，以及已经转换的运行模型，不需要聊天附件或另一个模型目录。不要单独复制 sim，它会复用项目内的其他模块。
 
 在新项目根目录执行：
 
@@ -21,23 +21,22 @@ sudo apt install -y curl ca-certificates libarchive-tools squashfs-tools e2fspro
 cd "$HOME/projects/bimanual-teleop"
 PIP_USER=false conda env create -f environment.yml
 conda activate bimanual-teleop
-PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements-assets.txt
-python -m bimanual_teleop.sim.doctor
+PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements.txt
+python -m bimanual_teleop.sim.resources --check-git
 ```
 
-主机 Python 始终使用 `bimanual-teleop` Conda；Isaac 使用容器自带 Python 3.11。不要使用系统 Python、pip --user 或 sudo pip 安装项目依赖。
+主机 Python 始终使用 `bimanual-teleop` Conda；Isaac 使用容器自带 Python 3.11。不要使用系统 Python、pip --user 或 sudo pip 安装项目依赖。资源检查应显示 `passed: true`，缺失、未引用、未跟踪列表均为空。
 
-将四个原始附件放在 `bimanual_teleop/sim/assets/incoming/`，明确指定路径生成模型：
+日常搭建无需重新转换 CAD。只有修改源模型或确实要重建网格时，再安装转换工具并执行：
 
 ```bash
-python -m bimanual_teleop.sim.assets \
-  --robot bimanual_teleop/sim/assets/incoming/Pro-m6-696-夹爪.rar \
-  --hands bimanual_teleop/sim/assets/incoming/hand2_beta2.zip \
-  --fixture bimanual_teleop/sim/assets/incoming/导轨台2.step \
-  --camera bimanual_teleop/sim/assets/incoming/D435i_Solid.SLDPRT
+PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements-assets.txt
+bimanual_teleop/sim/docker/install-cad-reader.sh
+python -m bimanual_teleop.sim.assets
+python -m bimanual_teleop.sim.resources
 ```
 
-成功时生成 `assets/generated/robot.urdf`、`fixture.obj`、`rail/rail.obj` 与 `manifest.json`，报告 70 个保持通孔空心的凸碰撞体。原附件不会覆盖；默认附件路径只适用于旧服务器，换设备用以上明确路径。
+生成的 `robot.urdf`、`task/`、`rail/` 和清单一起进入 Git。重建后用 `git diff` 检查变化；`resources --prune` 仅在明确需要时清理未引用的模型。[模型与装配说明](task-models.md)
 
 准备运行时：
 
@@ -138,11 +137,11 @@ python -m bimanual_teleop.sim.export \
 
 方案范围为从 0 开始的图像帧索引 `[start,end)`，不是 tick / 秒；保留源 UUID。可合并、移动或删除范围；选中的 task 不得为 null。导出不覆盖已有目录，改方案后用新输出名。整任务窗口能跨 B，子任务按所选范围切开，真实暂停 / 缺帧都切开。训练 / 验证统一按原始示范 UUID 划分。
 
-三相机与状态按物理 tick 同步。默认物理 240 Hz、控制 120 Hz、图像 30 Hz 均为仿真时间频率；视频播放长度不等于墙钟录制时长。六维数据为固定手安装关节反力，含重力 / 惯性；深度、实际关节扭矩、手指触觉尚未实现。
+三相机与状态按物理 tick 同步。默认物理 240 Hz、控制 120 Hz、图像 30 Hz 均为仿真时间频率；视频播放长度不等于墙钟录制时长。六维数据为传感器输入固定关节反力，含工具重力与惯性；深度、实际关节扭矩、手指触觉尚未实现。
 
 ## 6. 改环境与首次验收
 
-复制 `configs/default.yaml` 或写一份仅覆盖参数的 `configs/my_scene.yaml`，使用 `--config` 启动。可以调整当前场景的桌面、箱子、导轨台布局；导轨几何、手安装角改变后，用同一配置重新运行 assets。所有参数位置在 [架构说明](architecture.md)。
+复制 `configs/default.yaml` 或写一份仅覆盖参数的 `configs/my_scene.yaml`，使用 `--config` 启动。可以调整 CAD 场景的桌子、箱堆、导轨台位置；真实模型尺寸不能仅靠改 YAML 改写。导轨或安装几何变化后需重新转换、检查孔销配准并更新默认位姿。所有参数位置在 [架构说明](architecture.md)。
 
 当前 engine / task 仍含导轨与 54 关节假设；增加新物体、改成新任务时需同步改场景、状态读取、动作与成功条件。仅改 YAML 名称不是新任务实现。任意 USD 任务加载、策略闭环和多环境训练没有现成入口。
 
@@ -163,9 +162,9 @@ bimanual_teleop/sim/docker/exec-apptainer.sh \
 | DISPLAY missing / X11 授权失败 | 在 Remmina 桌面终端运行；确认自己的 DISPLAY 和 XAUTHORITY |
 | overlay 占用 | 关闭本人旧 Isaac / 验证进程，等退出；不删除占用中的 overlay |
 | 窗口先黑屏 | 等应用和模型准备，查看终端与 status.json；不能只凭 NGX 报错判断原因 |
-| 模型缺失 | 四个附件路径是否正确，assets 是否成功；generated 忽略 Git |
+| 模型缺失 | 当前仓库版本是否包含 assets；运行 resources --check-git 检查缺失或未跟踪文件 |
 | NVENC 不可用 | 用 `--codec libx264`，检查 episode 保存结果 |
 | B 无效 | 加了 --record、正在录制、终端 / 视口焦点正确；等待下一张成功图像 |
 | 导出拒绝 | complete 状态、真实动作来源、方案 task / UUID / frame_count 与输出新目录 |
 
-迁移保留完整源码、四个原始附件、自用配置、原始 recordings、分段方案和源 UUID 划分。SIF 可复制减少下载，overlay 建议在新设备重建；复制它之前必须关闭容器。`.runtime` 与 `data` 不在 Git。原有 Quest / 手套 / 脚踏板分支保留，准备接设备时再按 `client/server` 的参数与 SDK 文档联调。
+迁移时克隆包含模型的完整仓库版本，自用配置应一并提交；原始 recordings、分段方案和源 UUID 划分另行备份。无需单独迁移旧聊天附件。SIF 可复制减少下载，overlay 建议在新设备重建；复制它之前必须关闭容器。`.runtime` 与 `data` 不在 Git，由安装脚本和采集程序生成。原有 Quest / 手套 / 脚踏板分支保留，准备接设备时再按 `client/server` 的参数与 SDK 文档联调。

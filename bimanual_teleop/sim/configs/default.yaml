@@ -34,17 +34,23 @@ robot:
   arm_damping: 40
   crossed_controllers: true
 scene:
-  table_center: [0.60, 0, 0.725]
-  table_size: [0.90, 1.65, 0.05]
-  fixture_origin: [0.50, 0, 0.75]
-  bin_centers: [[0.45, 0.52, 0.75], [0.45, -0.52, 0.75]]
-  bin_inner_size: [0.45, 0.46, 0.10]
+  asset_profile: rail_task_cad_v1
+  # +X points from the robot towards the far, narrow end of the 1 m table.
+  table_center: [0.78, 0, 0]
+  table_size: [1.00, 0.67, 0.73]
+  fixture_origin: [0.65, 0, 0.73]
+  # Origins of the accessible, fifth box; lower four boxes start at floor Z=0.
+  bin_centers: [[0.72, 0.56, 0.712], [0.72, -0.56, 0.712]]
+  bin_stack_count: 5
+  bin_stack_pitch_m: 0.178  # Same 4 mm nesting as the supplied scene assembly.
+  bin_inner_size: [0.465, 0.320, 0.182]
   bin_wall: 0.01
 rail:
-  size_m: [0.400, 0.045, 0.025]
-  hole_spacing_m: 0.211
-  hole_diameter_m: 0.010
-  pin_diameter_m: 0.006
+  size_m: [0.480, 0.045821628, 0.025709009]
+  hole_spacing_m: 0.265
+  # Conservative dimensions; individual CAD hole/pin radii are in the manifest.
+  hole_diameter_m: 0.008
+  pin_diameter_m: 0.006683183
   hole_segments: 32
   mass_kg: 0.8
   mass_is_assumption: true
@@ -52,7 +58,8 @@ rail:
   rest_offset_m: 0
   friction: 0.5
   finger_friction: 0.8
-  initial_center: [0.45, 0.52, 0.7725]
+  initial_center: [0.648758353, 0.006474946, 0.821278683]
+  initial_rpy_deg: [0, 0, 90.064975509]
 cameras:
   width: 640
   height: 480

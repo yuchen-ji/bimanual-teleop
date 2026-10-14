@@ -1,0 +1,1158 @@
+{
+  "sources": {
+    "table": {
+      "filename": "table.STEP",
+      "sha256": "af38ddd40d8826122bd82d8618ff4b0468aad84446aee77c702342295652ba50"
+    },
+    "bins": {
+      "filename": "EU塑料转运箱.STEP",
+      "sha256": "1a1a106b19726d070d11d32e27112555b8bf2f11c285b62cc7d97d857811f144"
+    },
+    "fixture": {
+      "filename": "导轨台长.step",
+      "sha256": "3706ac7e51d7f73ad5349f537e0f06f493a967e32dcd561b64fc08ad29363eb2"
+    },
+    "rail": {
+      "filename": "导轨长.SLDPRT",
+      "sha256": "267b6f4a03520018bdf3a790be0e7c459e42ffa09ad93bb61d0349da05f54519"
+    },
+    "force_sensor": {
+      "filename": "模拟六维力传感器.step",
+      "sha256": "473ba3b4d6d125c8a7bb458723ba5adff2536d4e2d791c9760ea60f6061a14a3"
+    },
+    "wrist_assembly": {
+      "filename": "腕部相机及其支架.step",
+      "sha256": "ceb4a90feefe08adb0524cfa46a491ba84051b5d01f6f3c49003da7af5f63731"
+    }
+  },
+  "models": {
+    "table": {
+      "mesh": "task/table.obj",
+      "bounds_m": [
+        [
+          -0.5000000000000001,
+          -0.3350000000000001,
+          0.0
+        ],
+        [
+          0.5000000000000001,
+          0.3350000000000001,
+          0.73
+        ]
+      ],
+      "vertices": 1320,
+      "triangles": 2636,
+      "sha256": "3f0791cace611ef556882e88085dc254566b8a8864a5f9ebe9bffd8b105efb4f",
+      "cad_bounds_m": [
+        [
+          -0.5000000000000002,
+          -0.73,
+          -0.3350000000000001
+        ],
+        [
+          0.49999999999999994,
+          0.0,
+          0.3350000000000001
+        ]
+      ],
+      "cad_rotation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          -1
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        -1.3877787807814457e-16,
+        0.0,
+        -0.73
+      ]
+    },
+    "bins": {
+      "mesh": "task/bins.obj",
+      "bounds_m": [
+        [
+          -0.2465,
+          -0.174,
+          0.0
+        ],
+        [
+          0.2465,
+          0.174,
+          0.182
+        ]
+      ],
+      "vertices": 2108,
+      "triangles": 4212,
+      "sha256": "ba1e6876cf9250882db35ebcb7014d636ad1cbd6c3c39fc6297506e08627365e",
+      "cad_bounds_m": [
+        [
+          -0.2465,
+          -0.174,
+          -0.182
+        ],
+        [
+          0.2465,
+          0.174,
+          0.0
+        ]
+      ],
+      "cad_rotation": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        0.0,
+        0.0,
+        -0.182
+      ]
+    },
+    "fixture": {
+      "mesh": "task/fixture.obj",
+      "bounds_m": [
+        [
+          -0.04999999999998,
+          -0.15074372482295,
+          0.0
+        ],
+        [
+          0.04999999999998,
+          0.15074372482295,
+          0.09225127529677499
+        ]
+      ],
+      "vertices": 561256,
+      "triangles": 1122508,
+      "sha256": "ceb9c829d917ca92becb6f44cad376a60f58c73d0b7e2ae04cef179d72f8e613",
+      "collision": {
+        "mesh": "task/fixture_collision.obj",
+        "bounds_m": [
+          [
+            -0.04999999999998,
+            -0.15074372482295,
+            0.0
+          ],
+          [
+            0.04999999999998,
+            0.15074372482295,
+            0.09225127529677499
+          ]
+        ],
+        "vertices": 120002,
+        "triangles": 240000,
+        "sha256": "bdf64543610496d1942c1aebf400b731e50fb6ce6b42a1a6723a66959d91430f",
+        "sampled_surface_error_m": 7.937860468309273e-05,
+        "surface_samples": 24244,
+        "error_limit_m": 0.0001,
+        "method": "quadric decimation; dense upper-surface distance check"
+      },
+      "cad_bounds_m": [
+        [
+          -0.1470923690795,
+          0.061845821380615,
+          -0.1101540279388
+        ],
+        [
+          0.1543950805664,
+          0.15409709667739,
+          -0.01015402793884
+        ]
+      ],
+      "cad_rotation": [
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        -0.06015402793882,
+        0.003651355743450005,
+        0.061845821380615
+      ]
+    },
+    "force_sensor": {
+      "mesh": "task/force_sensor.obj",
+      "bounds_m": [
+        [
+          -0.031190302478425882,
+          -0.031200000000000092,
+          0.0
+        ],
+        [
+          0.031190302478425056,
+          0.0311999999999999,
+          0.039999999999999925
+        ]
+      ],
+      "vertices": 2150,
+      "triangles": 4324,
+      "sha256": "61abd9e24075125dcc64759d3044693b5e452ead3102554f9762f440b823b63b",
+      "cad_bounds_m": [
+        [
+          -0.031190302478425882,
+          -0.031200000000000092,
+          0.8705
+        ],
+        [
+          0.031190302478425056,
+          0.0311999999999999,
+          0.9105
+        ]
+      ],
+      "cad_rotation": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        0.0,
+        0.0,
+        0.8705
+      ]
+    },
+    "wrist_assembly": {
+      "bounds_m": [
+        [
+          -0.043717075628183756,
+          -0.031190878027091473,
+          -0.06695406813071503
+        ],
+        [
+          0.04618347731430561,
+          0.07427176067834,
+          0.0020003806873389735
+        ]
+      ],
+      "vertices": 76210,
+      "triangles": 152447,
+      "cad_bounds_m": [
+        [
+          -0.028444365628183754,
+          -0.06582653802709147,
+          0.02383593186928496
+        ],
+        [
+          0.06145618731430561,
+          0.03963610067834,
+          0.09279038068733897
+        ]
+      ],
+      "cad_rotation": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        0.01527271,
+        -0.03463566,
+        0.09079
+      ],
+      "parts": [
+        {
+          "mesh": "task/wrist_part_0.obj",
+          "bounds_m": [
+            [
+              -0.031200022221729795,
+              -0.031190878027091473,
+              -0.06695406813071503
+            ],
+            [
+              0.03119997777827,
+              0.07427176067834,
+              0.0020003806873389735
+            ]
+          ],
+          "vertices": 2722,
+          "triangles": 5476,
+          "sha256": "c0c100b72a8e9e0ae7e70f5db91535746aa8518fe3bbd652140f145865198261",
+          "color": [
+            0.35,
+            0.38,
+            0.42
+          ]
+        },
+        {
+          "mesh": "task/wrist_part_1.obj",
+          "bounds_m": [
+            [
+              -0.043717075628183756,
+              0.04189041228953229,
+              -0.061260307800210176
+            ],
+            [
+              0.04618347731430561,
+              0.06908358306449396,
+              -0.03251318849168034
+            ]
+          ],
+          "vertices": 73150,
+          "triangles": 146299,
+          "sha256": "44976ebddba0057075b3608368a7e171ef1d7e161156db1679206e4d37f86a39",
+          "color": [
+            0.06,
+            0.07,
+            0.08
+          ]
+        },
+        {
+          "mesh": "task/wrist_part_2.obj",
+          "bounds_m": [
+            [
+              -0.041716110806685,
+              0.05186098219363536,
+              -0.03706304934115089
+            ],
+            [
+              0.04147149744880728,
+              0.06674366271720089,
+              -0.033016073132488034
+            ]
+          ],
+          "vertices": 338,
+          "triangles": 672,
+          "sha256": "a00996717c73735e13f867c901eccf16ba35a00b00d2abe3da6fdc994dfec3b0",
+          "color": [
+            0.15,
+            0.18,
+            0.2
+          ]
+        }
+      ]
+    },
+    "rail": {
+      "mesh": "rail/rail.obj",
+      "bounds_m": [
+        [
+          -0.23999999463558197,
+          -0.02291081380099058,
+          -0.012854504399001598
+        ],
+        [
+          0.23999999463558197,
+          0.02291081380099058,
+          0.012854504399001598
+        ]
+      ],
+      "vertices": 930,
+      "triangles": 1896,
+      "sha256": "2bcd202bfc9e5d0f2d8f565185d1489db0cca1f5e95299415df9122ffc317457",
+      "visual": "rail.obj",
+      "colliders": [
+        "cad_collision_000.obj",
+        "cad_collision_001.obj",
+        "cad_collision_002.obj",
+        "cad_collision_003.obj",
+        "cad_collision_004.obj",
+        "cad_collision_005.obj",
+        "cad_collision_006.obj",
+        "cad_collision_007.obj",
+        "cad_collision_008.obj",
+        "cad_collision_009.obj",
+        "cad_collision_010.obj",
+        "cad_collision_011.obj",
+        "cad_collision_012.obj",
+        "cad_collision_013.obj",
+        "cad_collision_014.obj",
+        "cad_collision_015.obj",
+        "cad_collision_016.obj",
+        "cad_collision_017.obj",
+        "cad_collision_018.obj",
+        "cad_collision_019.obj",
+        "cad_collision_020.obj",
+        "cad_collision_021.obj",
+        "cad_collision_022.obj",
+        "cad_collision_023.obj",
+        "cad_collision_024.obj",
+        "cad_collision_025.obj",
+        "cad_collision_026.obj",
+        "cad_collision_027.obj",
+        "cad_collision_028.obj",
+        "cad_collision_029.obj",
+        "cad_collision_030.obj",
+        "cad_collision_031.obj",
+        "cad_collision_032.obj",
+        "cad_collision_033.obj",
+        "cad_collision_034.obj",
+        "cad_collision_035.obj",
+        "cad_collision_036.obj",
+        "cad_collision_037.obj",
+        "cad_collision_038.obj",
+        "cad_collision_039.obj",
+        "cad_collision_040.obj",
+        "cad_collision_041.obj",
+        "cad_collision_042.obj",
+        "cad_collision_043.obj",
+        "cad_collision_044.obj",
+        "cad_collision_045.obj",
+        "cad_collision_046.obj",
+        "cad_collision_047.obj",
+        "cad_collision_048.obj",
+        "cad_collision_049.obj",
+        "cad_collision_050.obj",
+        "cad_collision_051.obj",
+        "cad_collision_052.obj",
+        "cad_collision_053.obj",
+        "cad_collision_054.obj",
+        "cad_collision_055.obj",
+        "cad_collision_056.obj",
+        "cad_collision_057.obj",
+        "cad_collision_058.obj",
+        "cad_collision_059.obj",
+        "cad_collision_060.obj",
+        "cad_collision_061.obj",
+        "cad_collision_062.obj",
+        "cad_collision_063.obj",
+        "cad_collision_064.obj",
+        "cad_collision_065.obj",
+        "cad_collision_066.obj",
+        "cad_collision_067.obj",
+        "cad_collision_068.obj",
+        "cad_collision_069.obj",
+        "cad_collision_070.obj",
+        "cad_collision_071.obj",
+        "cad_collision_072.obj",
+        "cad_collision_073.obj",
+        "cad_collision_074.obj",
+        "cad_collision_075.obj",
+        "cad_collision_076.obj",
+        "cad_collision_077.obj",
+        "cad_collision_078.obj",
+        "cad_collision_079.obj",
+        "cad_collision_080.obj",
+        "cad_collision_081.obj",
+        "cad_collision_082.obj",
+        "cad_collision_083.obj",
+        "cad_collision_084.obj",
+        "cad_collision_085.obj",
+        "cad_collision_086.obj",
+        "cad_collision_087.obj",
+        "cad_collision_088.obj",
+        "cad_collision_089.obj",
+        "cad_collision_090.obj",
+        "cad_collision_091.obj",
+        "cad_collision_092.obj",
+        "cad_collision_093.obj",
+        "cad_collision_094.obj",
+        "cad_collision_095.obj",
+        "cad_collision_096.obj",
+        "cad_collision_097.obj",
+        "cad_collision_098.obj",
+        "cad_collision_099.obj",
+        "cad_collision_100.obj",
+        "cad_collision_101.obj",
+        "cad_collision_102.obj",
+        "cad_collision_103.obj",
+        "cad_collision_104.obj",
+        "cad_collision_105.obj",
+        "cad_collision_106.obj",
+        "cad_collision_107.obj",
+        "cad_collision_108.obj",
+        "cad_collision_109.obj",
+        "cad_collision_110.obj",
+        "cad_collision_111.obj",
+        "cad_collision_112.obj",
+        "cad_collision_113.obj",
+        "cad_collision_114.obj",
+        "cad_collision_115.obj",
+        "cad_collision_116.obj",
+        "cad_collision_117.obj",
+        "cad_collision_118.obj",
+        "cad_collision_119.obj",
+        "cad_collision_120.obj",
+        "cad_collision_121.obj",
+        "cad_collision_122.obj",
+        "cad_collision_123.obj",
+        "cad_collision_124.obj",
+        "cad_collision_125.obj",
+        "cad_collision_126.obj",
+        "cad_collision_127.obj",
+        "cad_collision_128.obj",
+        "cad_collision_129.obj",
+        "cad_collision_130.obj",
+        "cad_collision_131.obj",
+        "cad_collision_132.obj",
+        "cad_collision_133.obj",
+        "cad_collision_134.obj",
+        "cad_collision_135.obj",
+        "cad_collision_136.obj",
+        "cad_collision_137.obj",
+        "cad_collision_138.obj",
+        "cad_collision_139.obj",
+        "cad_collision_140.obj",
+        "cad_collision_141.obj",
+        "cad_collision_142.obj",
+        "cad_collision_143.obj",
+        "cad_collision_144.obj",
+        "cad_collision_145.obj",
+        "cad_collision_146.obj",
+        "cad_collision_147.obj",
+        "cad_collision_148.obj",
+        "cad_collision_149.obj",
+        "cad_collision_150.obj",
+        "cad_collision_151.obj",
+        "cad_collision_152.obj",
+        "cad_collision_153.obj",
+        "cad_collision_154.obj",
+        "cad_collision_155.obj",
+        "cad_collision_156.obj",
+        "cad_collision_157.obj",
+        "cad_collision_158.obj",
+        "cad_collision_159.obj",
+        "cad_collision_160.obj",
+        "cad_collision_161.obj",
+        "cad_collision_162.obj",
+        "cad_collision_163.obj",
+        "cad_collision_164.obj",
+        "cad_collision_165.obj",
+        "cad_collision_166.obj",
+        "cad_collision_167.obj",
+        "cad_collision_168.obj",
+        "cad_collision_169.obj",
+        "cad_collision_170.obj",
+        "cad_collision_171.obj",
+        "cad_collision_172.obj",
+        "cad_collision_173.obj",
+        "cad_collision_174.obj",
+        "cad_collision_175.obj",
+        "cad_collision_176.obj",
+        "cad_collision_177.obj",
+        "cad_collision_178.obj",
+        "cad_collision_179.obj",
+        "cad_collision_180.obj",
+        "cad_collision_181.obj",
+        "cad_collision_182.obj",
+        "cad_collision_183.obj",
+        "cad_collision_184.obj",
+        "cad_collision_185.obj",
+        "cad_collision_186.obj",
+        "cad_collision_187.obj",
+        "cad_collision_188.obj",
+        "cad_collision_189.obj",
+        "cad_collision_190.obj",
+        "cad_collision_191.obj",
+        "cad_collision_192.obj",
+        "cad_collision_193.obj",
+        "cad_collision_194.obj",
+        "cad_collision_195.obj",
+        "cad_collision_196.obj",
+        "cad_collision_197.obj",
+        "cad_collision_198.obj",
+        "cad_collision_199.obj",
+        "cad_collision_200.obj",
+        "cad_collision_201.obj",
+        "cad_collision_202.obj",
+        "cad_collision_203.obj",
+        "cad_collision_204.obj",
+        "cad_collision_205.obj",
+        "cad_collision_206.obj",
+        "cad_collision_207.obj",
+        "cad_collision_208.obj",
+        "cad_collision_209.obj",
+        "cad_collision_210.obj",
+        "cad_collision_211.obj",
+        "cad_collision_212.obj",
+        "cad_collision_213.obj",
+        "cad_collision_214.obj",
+        "cad_collision_215.obj",
+        "cad_collision_216.obj",
+        "cad_collision_217.obj",
+        "cad_collision_218.obj",
+        "cad_collision_219.obj",
+        "cad_collision_220.obj",
+        "cad_collision_221.obj",
+        "cad_collision_222.obj",
+        "cad_collision_223.obj",
+        "cad_collision_224.obj",
+        "cad_collision_225.obj",
+        "cad_collision_226.obj",
+        "cad_collision_227.obj",
+        "cad_collision_228.obj",
+        "cad_collision_229.obj",
+        "cad_collision_230.obj",
+        "cad_collision_231.obj",
+        "cad_collision_232.obj",
+        "cad_collision_233.obj",
+        "cad_collision_234.obj",
+        "cad_collision_235.obj",
+        "cad_collision_236.obj",
+        "cad_collision_237.obj",
+        "cad_collision_238.obj",
+        "cad_collision_239.obj",
+        "cad_collision_240.obj",
+        "cad_collision_241.obj",
+        "cad_collision_242.obj",
+        "cad_collision_243.obj",
+        "cad_collision_244.obj",
+        "cad_collision_245.obj",
+        "cad_collision_246.obj",
+        "cad_collision_247.obj",
+        "cad_collision_248.obj",
+        "cad_collision_249.obj",
+        "cad_collision_250.obj",
+        "cad_collision_251.obj",
+        "cad_collision_252.obj",
+        "cad_collision_253.obj",
+        "cad_collision_254.obj",
+        "cad_collision_255.obj",
+        "cad_collision_256.obj",
+        "cad_collision_257.obj",
+        "cad_collision_258.obj",
+        "cad_collision_259.obj",
+        "cad_collision_260.obj",
+        "cad_collision_261.obj",
+        "cad_collision_262.obj",
+        "cad_collision_263.obj",
+        "cad_collision_264.obj",
+        "cad_collision_265.obj",
+        "cad_collision_266.obj",
+        "cad_collision_267.obj",
+        "cad_collision_268.obj",
+        "cad_collision_269.obj",
+        "cad_collision_270.obj",
+        "cad_collision_271.obj",
+        "cad_collision_272.obj",
+        "cad_collision_273.obj",
+        "cad_collision_274.obj",
+        "cad_collision_275.obj",
+        "cad_collision_276.obj",
+        "cad_collision_277.obj",
+        "cad_collision_278.obj",
+        "cad_collision_279.obj",
+        "cad_collision_280.obj",
+        "cad_collision_281.obj",
+        "cad_collision_282.obj",
+        "cad_collision_283.obj",
+        "cad_collision_284.obj",
+        "cad_collision_285.obj",
+        "cad_collision_286.obj",
+        "cad_collision_287.obj",
+        "cad_collision_288.obj",
+        "cad_collision_289.obj",
+        "cad_collision_290.obj",
+        "cad_collision_291.obj",
+        "cad_collision_292.obj",
+        "cad_collision_293.obj",
+        "cad_collision_294.obj",
+        "cad_collision_295.obj",
+        "cad_collision_296.obj",
+        "cad_collision_297.obj",
+        "cad_collision_298.obj"
+      ],
+      "hole_centers_m": [
+        [
+          -0.137999994635582,
+          4.819594323635101e-06,
+          -0.012854504399001598
+        ],
+        [
+          0.12700000536441802,
+          7.00714229371951e-05,
+          -0.012854504399001598
+        ]
+      ],
+      "collider_sha256": {
+        "cad_collision_000.obj": "e4bfb11f94b621eb36c1056ed1cf2e291901b2cd268ac119d98a14a3c79cd273",
+        "cad_collision_001.obj": "d5023960696530710c43d3203b3fc2aef218a486d0d09548615d2149609a8303",
+        "cad_collision_002.obj": "87a5ba18bc14ce4f6d3e607a1a057250f9814ec8605608d8e4871de281ddc2b7",
+        "cad_collision_003.obj": "826f3a86a7522b0766cc28a548d7996821295f30f7b1b5c0157e41b78403a4e0",
+        "cad_collision_004.obj": "5d768c16918969b98d3b6bf0ae5f5ab09e82a2aa02cf6e2c4dbf6af52b36e8a6",
+        "cad_collision_005.obj": "635bd58ad2a0275e36539deb40cbbcd5b57e79e2b256548e9b1e357844b4af6a",
+        "cad_collision_006.obj": "c96c1973d09e851b90b670c94467a023adaf667bcc89f8d22df033f1bc3fb53e",
+        "cad_collision_007.obj": "e45b610b644194ac2eb4adcbdebced855807c62cadc1054b824202199861ab3c",
+        "cad_collision_008.obj": "5ee68d28289c215ec761c10cb9169665e36207055f3cc1bb70ac719559af8318",
+        "cad_collision_009.obj": "dcd4ef322e070c32a1669589079330d0287664fa8ca6177cb1f92e07d4d28d3a",
+        "cad_collision_010.obj": "105e7896516d9a0464a71d186682f5fd31f5b1c61c2a2cf79bea1cb2b5df56bc",
+        "cad_collision_011.obj": "1e237feb10bf2928a333585eee93542d3583bf5d705f07ed42b92d8e67e09fc2",
+        "cad_collision_012.obj": "8f01c6f7ffddcbc774e199240c0765de68e51f041aec1414b9b84d40569d3233",
+        "cad_collision_013.obj": "384880856595bf9602f0a00b47090cec93acd9f128e6165516d4751254aa71cb",
+        "cad_collision_014.obj": "70652242ea44ecd2a1afec702a85dea02d8344b1a92cafe89d7daba5fd1a9840",
+        "cad_collision_015.obj": "023ddc1e9953397fb8421d7dbb959d5db66af8c06b26037217eabcbde8315273",
+        "cad_collision_016.obj": "0dacde2b06d7055511be4dcd55b80a8a12fbc092f0b7a8024448bb898321f867",
+        "cad_collision_017.obj": "ea702ffdbb095ce92c815e9efe4d1c29db434d4fcb81de54d4a80e2531664e0a",
+        "cad_collision_018.obj": "c9db263bbb60f33f47dd6ea5e1105b30121140e041a6e2cd84345ebb64530ec0",
+        "cad_collision_019.obj": "fc1543e9e5030436111cec27def160cdb695f7d7e60e1f1eda1d1c3b72c77a81",
+        "cad_collision_020.obj": "9abe4483b355497a581c0838dd798d345100b6050bd4c92dcf54199805fa6f1a",
+        "cad_collision_021.obj": "dfa1bd50893b4a572bf40a8ffdf45897011c4971b7a7d4132eed864f99b80953",
+        "cad_collision_022.obj": "8def63d0472015352e1083d37e8194837ef94b9cfd09779c6975804712840ac8",
+        "cad_collision_023.obj": "cee7ed1a7c3a8253ca93788e5eff3630b61a719ebf8d1f90e60e40c7bafeac33",
+        "cad_collision_024.obj": "3029539722d0bafbb3250d44924d240819ad91ac03d435c7c3b8f89cde91c0a6",
+        "cad_collision_025.obj": "06b4e47bce00cefc13ae91af0c8d439cfb1b3506555f8228ac2fe18ee09ef6c2",
+        "cad_collision_026.obj": "e761a5996983bf09ffbb0a600122b5f046b14e86f32bbc588c957efd9910a052",
+        "cad_collision_027.obj": "6dafc1b579b55936c649964153be8fa11952be4de15119898959856fdad1a635",
+        "cad_collision_028.obj": "9a74319765a6a05ed618d56057952c4daa0f74e629f7b9e92ef0068f3e6d570b",
+        "cad_collision_029.obj": "b57daabaa25f4305688716210028aadefca1405fb014a23294a2412873de462c",
+        "cad_collision_030.obj": "db447d64aa7880b680bf3018f8077dd31b81f8989415a7ca125f12d823b98855",
+        "cad_collision_031.obj": "8860b90208230f8af58aafb77d39106caab5100549eea6102d07176413645d0d",
+        "cad_collision_032.obj": "0970e3c6a83db9b458126e783fa4d4b8ac8a29378693bda14d01b5cf02e24690",
+        "cad_collision_033.obj": "b18438cf16933f48e3003689b6ddd0a3a31536049076b388168a152dafec3cba",
+        "cad_collision_034.obj": "fe724950e74560ec1f513bc4540ccf5ca579df7d5763fcff43a437f0968ff65f",
+        "cad_collision_035.obj": "274a81633a577ab52e3d120b7c00a0c60e7b275c6085d097ec1d29274652431d",
+        "cad_collision_036.obj": "9268b9e50a80930004331b6958e75a953b93aff85aef9c3264d286ae22538ffb",
+        "cad_collision_037.obj": "4bf912c0f991ca0a8bb15cf1411bddb4a12ef69d059c08e34a3ba24e9626e2d5",
+        "cad_collision_038.obj": "67d1cac320fbd7fbc4ca247e82328ca3147f5d44aa8ea7061c92744c41681682",
+        "cad_collision_039.obj": "d6797d1a02e190946b6bd2c0b4ec4742a6d13f9751d3a3a7443d7eec9cf7001e",
+        "cad_collision_040.obj": "d592f206068a6332c96ba040e3844d2f2bcddc7c21f18b5e49c93fa90956b36d",
+        "cad_collision_041.obj": "c870de2264683d6ed9d02c78f29f823b3072bce38383a7ab49c1b2ab4debccbb",
+        "cad_collision_042.obj": "de5200c9808aad1d7ace3cf53707b6848fb4d53d434f0faf6fb157bc573541a3",
+        "cad_collision_043.obj": "8b958e1dbd9911c0e5f3ee7dbac140fcf9cdd7ba7daedfb303daa0ba402884e0",
+        "cad_collision_044.obj": "327533a207b08a7706ee6966e9870ed59d59f23c51634b6787da95295bc70a83",
+        "cad_collision_045.obj": "66a4cd719e1d1cae3569bf5824acc9f5fb40e7c409e017986f381fac116607c2",
+        "cad_collision_046.obj": "f1dde66b1838fa1c2289edb6ad8844cd689046f646db30e9be5cbe66ac9ff474",
+        "cad_collision_047.obj": "eb468ad05634d0e01e5479febb05e5d5bc4db61f1d31b950e084f3f25a52b1b2",
+        "cad_collision_048.obj": "9f1d0eb8ab35c88ee28dd8df332923c4a1dfba84ba7c32b9f99c0ac745c507a7",
+        "cad_collision_049.obj": "f770b0fa57b127db3d5c95fcd9a4f928e1e18a7997e3b4be93877937cb33a60c",
+        "cad_collision_050.obj": "49e051e2ff5f1401ee6212f7e1257d3757c4bddb2d3c8411ccad4609c1c1b3b8",
+        "cad_collision_051.obj": "5a48e077d0196bbda314b460fa0c38b721506fece413f08e60b2b19ad92d3de3",
+        "cad_collision_052.obj": "960091d2d5a4bee295ca14613970aaa4e8a8d15ac210b708e808b8856555f51a",
+        "cad_collision_053.obj": "d31c22fda8cf74c50219b6cc62acc6277b308b398fec191f3404b4bfe40b25e3",
+        "cad_collision_054.obj": "645773453ac3f362d4e1442b01809f39b23a0fcf2ee70f2d739b119740180935",
+        "cad_collision_055.obj": "036c0ef9398bf200a162b4a6023aafa41c30212dd54e1971eae7fefa050c907f",
+        "cad_collision_056.obj": "523a02ac42af136340e37ace6e6f4397761ffaea1f832426a2e3cbaf0dfa0a23",
+        "cad_collision_057.obj": "e9035d9690db147e22a178c971fbfb625d2c3aa13741ad0b78cc9c3847db0ca3",
+        "cad_collision_058.obj": "6770ed2707f0a8cef18fdc73c401ebe4167e2c6bef8e22b2b4063899f0e8a1cd",
+        "cad_collision_059.obj": "3e359db8ac864e10abfa6eb3cc0fc8552e460e2d3234415621b9290b8dca1da8",
+        "cad_collision_060.obj": "e3f489a1a1375910f736bfcf1f3f009c8f322d394c179655adc99f9dec984648",
+        "cad_collision_061.obj": "0774d6a38d7abe41ce3b5c312e0088dc5fe99298b742784a822cb9e0bf2378a7",
+        "cad_collision_062.obj": "788d70ac247e5e1a733a9d41534b55bb896b04c7ba09a268ed71c9b11b5c1064",
+        "cad_collision_063.obj": "b18b3ae4519ee968ea76c0d7e5e3efe2fef5b642d34c29819972a287d7004f7c",
+        "cad_collision_064.obj": "226f7ce02450f1c03363e7881a0dc5f592f8f3961b5df7210b1ff0dc2d79604f",
+        "cad_collision_065.obj": "9a445efbad17a06fa251cce34e7a82629811430bf94f67ae630870bf73f3819a",
+        "cad_collision_066.obj": "75b57b90eeb80c7fd5151a02dffa86bde819f7b9712046cb3883c6dd5eea5fd3",
+        "cad_collision_067.obj": "eb21506051be30348790195b75c9adf47ecc867829dd0edfae7a58aeba075b90",
+        "cad_collision_068.obj": "062e2c27ac11278226f66dc0b840de27fe4b47b2736bea9cf14b6bc21da7bc12",
+        "cad_collision_069.obj": "d0ff9e45f44e154c40e64a9e50eee621ffb76f5a3c745c331b8109f0725e6cae",
+        "cad_collision_070.obj": "2ee331ea89da7dbea39770560f93bd03225b446616f526f42085f47ca329e9d5",
+        "cad_collision_071.obj": "02451fce6291c27d5b0233d93607440074c8c55f23e090ebd444ec17c01a2aa8",
+        "cad_collision_072.obj": "4db6d1fa138da1ae8e2d7652a12011b5ecd6af1cce4d5472b50bcb4a8f7a66d2",
+        "cad_collision_073.obj": "4cc3fc3f54a06b0891d39a63deb6ba4a38d42eacfb4b432cf7a50ea852162e0d",
+        "cad_collision_074.obj": "fbf38ffdee30449661f985a244f0a3875dcdd925b5d44d6495d3a19c88354206",
+        "cad_collision_075.obj": "311abd199bdd98e15284eb19d3e87adef992540d184adf2e35845827efdb60f3",
+        "cad_collision_076.obj": "24dba38d19dffd0f07e7a02a39f5539f696fe6147d44669fd04b9f85c2fb0a9c",
+        "cad_collision_077.obj": "edc92387ec4b5517d9e965eb0da7fc90cea74977716c1f5b3f85153c6e038ea0",
+        "cad_collision_078.obj": "dc4504a8eba69039b16e6f46b2cf3774f0735400ba57fd10da7a53a427bc1dd3",
+        "cad_collision_079.obj": "16ffab2a296f3b2952db009f4098473c4e90469ee5bed16efc1db032bb4c34e4",
+        "cad_collision_080.obj": "030988005a41b0d518674bc9f9a9d0e09ca0189bd53f3330dcb55412166e1956",
+        "cad_collision_081.obj": "b5b46ac9722b46b65e93f1a91805eef0bbdca83ac07672707940821a7e86fd60",
+        "cad_collision_082.obj": "e2b5ea2a0c0d89bf524d0c768668067e6480b7d1a52bcfb2df8b0a567257abe1",
+        "cad_collision_083.obj": "dd4a556ce5adb14229257b631239c60b4646da1149511fbb0ad8e6c9cb13e2f9",
+        "cad_collision_084.obj": "593b3b03fde4570e1026955d79fc25a10b338eb60e241460b73b245676f31327",
+        "cad_collision_085.obj": "e84252889d212c62c06ffa9137d975999cac25c3f107994d5ee8116b34fcfa50",
+        "cad_collision_086.obj": "923af94eac1363a9e3cd05bafd511a950f8b83068a711b876d5d279955a2b77b",
+        "cad_collision_087.obj": "2e92f9bc86347451075a33065b9abe39a2253ba6a2ba192865f52dc6201bc9db",
+        "cad_collision_088.obj": "284162af5b6ba847d6012f4f152cc31a8eab48d759e0e600ed6d1ca5c3a23e73",
+        "cad_collision_089.obj": "942d8ff8be7caedd41051e4c5fdb9f410b56e51d72b96329cb04e99efc63926e",
+        "cad_collision_090.obj": "675c834869dd5691f3cf58a344db1d90ded1fde2c3eb93d4f1884cbacebea728",
+        "cad_collision_091.obj": "b5e509ab06bc4886a7262603d13bc6ee16d8f22af1fc97d4180af9e6f671cbda",
+        "cad_collision_092.obj": "eb8db021eef2f125127826b40612bb3706836506f3ad60d3964732eb30ed6097",
+        "cad_collision_093.obj": "ede87efc97b61dc7d7a0909d8e516e8631ebda381a89540388a2bb248bf0fea2",
+        "cad_collision_094.obj": "a648c87cdb94645657b602cd274d5e64225373b7fe77b8c740215e698b662952",
+        "cad_collision_095.obj": "33cb7156d2c2b3a1f8d186fe312a56912b2085bbdbd8edf59c0e6d3387c0563c",
+        "cad_collision_096.obj": "88bd7d7baca3716862c9794c575af81cbba45872c0a5a9626fe77835c34a6dee",
+        "cad_collision_097.obj": "adb6d508007cdc9a5c299aa01bbe3fdf55bc7a43213d9342573c652a7b96dd6a",
+        "cad_collision_098.obj": "504f278092ee38db863b3f0f02061fdf16877bdebaceb9bcbe04199d81e666a0",
+        "cad_collision_099.obj": "2ca2774572a0156dda0528c471eb7a78e1beaaacbe00c1bc645abeb3029d84c5",
+        "cad_collision_100.obj": "597f4c9e8c2d1ee1299f15129c8ec206913fcd5405f287caa823a33c663b2a6e",
+        "cad_collision_101.obj": "0c4e94513da74ef73b7db81d77667d8a2218833ccf0b5af6140c8e94473ce098",
+        "cad_collision_102.obj": "a34bfa808f6d497b72bf050069b3e5f4aef64f6c0372598918ac4f9695bae777",
+        "cad_collision_103.obj": "1c023bd604c4e625f1f75d1a71637964bf0d83adffa11446d2e7f2bdc1a1e8c9",
+        "cad_collision_104.obj": "3fe260b9c951e71ea95d458128f478338670c2ff725e0b0f8922733059d8efc6",
+        "cad_collision_105.obj": "7c96d09c65543536f71b4a75039fa83ee01a39b3d291a056838beb8fe02d30c6",
+        "cad_collision_106.obj": "839396667957c8066867edbf5c146b642324fcbe507dd6c3772c090aa8f765d5",
+        "cad_collision_107.obj": "d756d93ad9e609b650b37f3ae6bda1a090f30a877157ea909c75ec0d1173944e",
+        "cad_collision_108.obj": "cfb07f7f9cb143c75358674c226e1dcd681349d3b34c9d48ffaa07afafff8764",
+        "cad_collision_109.obj": "6e6840ea1b1b2b0400bf2b58417a49e79b5171710f9b5cdcef78ae4d61d75620",
+        "cad_collision_110.obj": "311654c3862584556a7f45b5b1a64f3bb90a1fc9bce71bba899b0ee5cae250a2",
+        "cad_collision_111.obj": "ee1d0b5a8cb20c92ec983b6a5d971b127c06c44e687a0ff0af383b8b25c227ec",
+        "cad_collision_112.obj": "5d5924a1809d92c9e4903d1e3484d4f2debed1e83a0c7073b36f112be61a52a7",
+        "cad_collision_113.obj": "3ec1fe9f169864dc6c006f25e1a6f42db20b98b7dfafbf9710739b38171d4ed9",
+        "cad_collision_114.obj": "1544b2d1f1105646f936a042d793a9110eeef7761ab83a9e59e0d77c81c6c901",
+        "cad_collision_115.obj": "ed5d0f84f7634bdc16af82f9b0975623fce27841a6b925d6413853513a27b204",
+        "cad_collision_116.obj": "c32a99347f01bb64f0c1e824e3f2908986f08fd390579f5dba4693965d231450",
+        "cad_collision_117.obj": "490a60ffa22535005001097b2e152d2df4906009a1c36a821f8b6f09de1f0668",
+        "cad_collision_118.obj": "4089882946ff8bf68205ba6523b954800153874896f04404543a2915652e52e2",
+        "cad_collision_119.obj": "131d668c8816be08971c7e214c2c11a0a6b5b1a4a9287715ba4ffb9a0ab737bb",
+        "cad_collision_120.obj": "d2c7f1e26c57b3cdd58624dd936d720fc593951be0767dded66823381aea8982",
+        "cad_collision_121.obj": "e2a5d3b069d3c996348ec8f0660eba89b0d64cef8fa1f8d3d974d15436c83c3e",
+        "cad_collision_122.obj": "d876bec4e46dc05d7b063291024b172a898d12d1d2dba0f2c1b40930be83227b",
+        "cad_collision_123.obj": "d618845d43e5e7eca937a3fc7ec2fb444ff7e3444f9262fa823b5bddf213bc2e",
+        "cad_collision_124.obj": "0616d7bdb46a893c32f153220f0ffb187a0ccbd7bda5eeedf31edbd6c32883a9",
+        "cad_collision_125.obj": "58a538e72ed7e9b15554f0b6932621b6b7c2c78b79d6c45f0257e39044cbe6ef",
+        "cad_collision_126.obj": "d171b09af530bc163f122fd3f2f7a1346e1cff31faac8f518a6cfc1915410509",
+        "cad_collision_127.obj": "34a958b7882552f1d5dedf864311ba79874e4201eef96ae70e8663e77bd0a1a1",
+        "cad_collision_128.obj": "d40f96be04e0d722178bbadbbdc825c4dff96fc1bb8f6aa34951f3afc06fbf46",
+        "cad_collision_129.obj": "827dd31700fc333b2c4fd95532b8311e07bf6f12f96467c219a8eb4240b5dc6a",
+        "cad_collision_130.obj": "5171d69611b1ec40b2eb4b1e2f3f2a2cf2a13a4eedf277838d39ae283bfe530a",
+        "cad_collision_131.obj": "27a2b76d24dc89ce41e053af3a1ac5fdb2cdf4e9ac72c4e191c54cdeb4b69ed7",
+        "cad_collision_132.obj": "03e7d78ffbe0bc177f25ff9ea3ca0f7d7bab263c628c510fbd3019d8bed7bc83",
+        "cad_collision_133.obj": "dec5099a1ebc975c07ab0689fb11b570a7ac3563d347c8d18dc09f2102c96342",
+        "cad_collision_134.obj": "a1914e87cf7602d43325a462cb64c93551e35cdf3285e355a44b62afff2860b4",
+        "cad_collision_135.obj": "58a9d3e9ce367d753769b240f3383073f8a7c5a0de23cb7de5f4aded3d081f8d",
+        "cad_collision_136.obj": "dbaaef0d650cb4c96cd80b5fbffb470dff69b1b51ff34f0253b32477305240df",
+        "cad_collision_137.obj": "0ca9d1f514a38eee82b8e937393671f7639060b90fd88240b470a2667f96efca",
+        "cad_collision_138.obj": "16a69e8eaf6121a3ce5bfc7e426c39b323ab90c81140595b80cd3d7da2a04813",
+        "cad_collision_139.obj": "80a0bc3c78c970be211f61e30306ad218052973963744969c18b627e416f6848",
+        "cad_collision_140.obj": "2436914e4bad3d1c71a9134388d04a1c0f23a94aff264eef4e48a4397f58fb08",
+        "cad_collision_141.obj": "589bbb3503bc9e47b7fa575d49c851a1d9cb2467305e950442328c7aa04d4a66",
+        "cad_collision_142.obj": "2e6fe13ed666ad9c620a8aca7ae4a233a7880a7a737932aa295699be831cc7de",
+        "cad_collision_143.obj": "4202f4730731df0765b564ba3bf7e581f30860b90855016e6dab4aaf82e52b65",
+        "cad_collision_144.obj": "10642774401f586e24427069875ad9c9db8110b1ac64f726021d3ca397f1fae5",
+        "cad_collision_145.obj": "c396f3de453665278c62c7853ec9f2e0eb80b3f2d0a190a954989f5ea4cc6574",
+        "cad_collision_146.obj": "0fd0803fa592c8cbaf46bbdfc1335508471fba54cb0b9fc879f8f870ccbad66a",
+        "cad_collision_147.obj": "e2baf8d9f6aaca693cfdac4a27778ea9e67b89dca7d59b5e827cb3b5ea48cf23",
+        "cad_collision_148.obj": "e32df30865ffb961c80000eff09890d316a30b961a14aa792e5abe6691bbe17d",
+        "cad_collision_149.obj": "bdee65c11dc2d662cdca5d73ec684292318b2b35f351dff26318ace3f8ec6e89",
+        "cad_collision_150.obj": "c432d2ada802f853b9409cb2971713880f99a05d726b577df997a75394067eb5",
+        "cad_collision_151.obj": "7c0067c115de15ab4110b929f57e379f00cb14c2e6a814b2a6f0282e550606e8",
+        "cad_collision_152.obj": "0753bdcbdefcd858fefcfb9e44e05fc831a484b9c6a0a340aea16ebe2c709e35",
+        "cad_collision_153.obj": "d8684e81ad6ab8de6fc20ff8485ca568cbcef1b49d43b09c7cd7816073d25c9a",
+        "cad_collision_154.obj": "6bb32a1589771eec3d7c9edb207422cf1595d4f8849191754b3d75627c662f47",
+        "cad_collision_155.obj": "cba553b3540d3facdc613d9895d26bff743b58badce6621a7e2c3fb581995a42",
+        "cad_collision_156.obj": "9025ff421548e611877cef386a3f2bb30bb334c44d2d6e1a3d02e9e15507b915",
+        "cad_collision_157.obj": "986c0d2c8c912cca83c33ed53201c98b5297b06a96436a88ebbd911e3eeb3a8b",
+        "cad_collision_158.obj": "01bf10f2696e449310e4751e94bde3d0ca5d76d4abc625d5cffada2094d6c694",
+        "cad_collision_159.obj": "8dddfce143bff29194e4fde0f330028385c6ca60413b5ca83a13ab0fa10ca952",
+        "cad_collision_160.obj": "2913f2def2f591412feb2842c40442f92b70c5bd383bad58478b69abb7520856",
+        "cad_collision_161.obj": "e2f8fca7affc17e02c499a9664daf07997ae7760f8ebfce576aba52374cefe43",
+        "cad_collision_162.obj": "120d54af243a76f0d953e184be8a3b157a17d8370555a90f5ef82a9b3ce5ed2e",
+        "cad_collision_163.obj": "3e99dc844007c7d50272f3171e8d319c50d941a55f958e97a37f0ee5e21edd8d",
+        "cad_collision_164.obj": "8b75ee889d2e0d3cdcd87ca0c71d2661bd42711e9d4941416ec089cf6480edcf",
+        "cad_collision_165.obj": "244b97bae4bc65968cb200c3c164baf09f883d0ea085dfddbc5b8ad6b907039e",
+        "cad_collision_166.obj": "bd108ceba058114e485bc1d481ba7b0ff454bb6531159469aa5afc6542be6463",
+        "cad_collision_167.obj": "ab07328d286074bcd4ac4f823660869dc03169df20ef4f5c138c17a0f4b309dd",
+        "cad_collision_168.obj": "f8ceb7a612a1e9815c98059e4c17cd9f27634d41192fd514667dc5e22dbbf506",
+        "cad_collision_169.obj": "8de209b577d5cf124ef1a2f78eabb09b53af419ef658bad94de3a66f7867a9d2",
+        "cad_collision_170.obj": "b21b5ca0276b90801d6f845b496d6b6c5530723b6a580acb67a64bd742bfd25b",
+        "cad_collision_171.obj": "c1c37ca5e1e76fdfe2ceeff8d791c015ace052fff1ec6ffb0869fdc64980ccd0",
+        "cad_collision_172.obj": "6ec49cf85cc668bf823eeee2471f521c4f59edf3ec2daa6ccf94aeeffa859861",
+        "cad_collision_173.obj": "de775f214a3282a7f6cbe8b788c7d31d85842b4696bf7cfd36fb3dccd8e98519",
+        "cad_collision_174.obj": "1f99ade5c47d527301e0d2ba4a36c311c3e718100d7fa3e27046d50873884e69",
+        "cad_collision_175.obj": "2e27e05c6e51ca543994f7f7218f56989bbff6bc1141a125a0102af647c6f057",
+        "cad_collision_176.obj": "b3f5234a36c49b4d68f08f4b4a422ee059d7b30545b29f06785fb9e75065119f",
+        "cad_collision_177.obj": "1423a5ad7ceda6edce3aca0ae6a2831af538a5f7feacd8998c56ddccba589a76",
+        "cad_collision_178.obj": "5777aab86e8f73690e1d599b9ea4b5e50b0a871847906dc43a49684b0a8205c3",
+        "cad_collision_179.obj": "9a7b3efb14e19026bc131ac8fdaf4b25be8de6418fbc891eb8d0a53dfa5febe6",
+        "cad_collision_180.obj": "d2f085e12e1cb56182e8f94572a12a79a06c6c8c0a95bdf186f57e2fd53a8970",
+        "cad_collision_181.obj": "9a85605e53d4fcad5e816e2cc042b05a8cba8b129a668ee6c8b8a69e6d50a377",
+        "cad_collision_182.obj": "efce438f3d71e6f98564ec9395ab4972db0a4f43df63f8c7467eef547fef9027",
+        "cad_collision_183.obj": "328f9bdf19656cc19228b654005cb6b63bf1b702869c97ecea1e776f4e47f3a7",
+        "cad_collision_184.obj": "71f90006e25e3ff3ae467d059f1e3bbc98cbbeee29eca60d8592993d178eb4a5",
+        "cad_collision_185.obj": "3c746bb9768cc9311b4b035f01238c1acb64429c805b5484b2b8f721e8498996",
+        "cad_collision_186.obj": "96411ed103deb3ffbf45541610d75241bbf486ece5052ba6142c7d8a1ad44470",
+        "cad_collision_187.obj": "4b31d63143ac855206c5f2371b2d5cdd9cb8db761acd630dac87b4b2e43881e4",
+        "cad_collision_188.obj": "778ce9c3d367fb2625a8078cafe0a4ddeb553d4197bfa6041afafe8acbe645e3",
+        "cad_collision_189.obj": "3a655e7b8014cd50ad6509846547e30adcbbdccdf6d2bc2362b41c21bfd4b07b",
+        "cad_collision_190.obj": "0e4cb992101b024104cb52adaf82956f36dc456c5ea5fb4fab270e75d5ca3c93",
+        "cad_collision_191.obj": "a23da86e324b4735708a0a514841dbeb957879c6f4447906b158bd6b2787adc5",
+        "cad_collision_192.obj": "e3a6c52165713eedcf38f4d7d82185aeec4e70e49ff339b5c8727dbc28083615",
+        "cad_collision_193.obj": "db3211db3cdd714df4f4250d207a1f7f1a47e64026f59f044db82a23d7d477d4",
+        "cad_collision_194.obj": "621a3937ceacd97502eb5ea14af8de4a72120f69cbef94d641593bd74e561914",
+        "cad_collision_195.obj": "5e26972ccf6f06c419fe84a49f9fbe707703d383f141e400da30dfc8a72bbca0",
+        "cad_collision_196.obj": "745bbb5fb8d96cf953053c443bf06a2a35d652a682bf1fe9b91384868570200c",
+        "cad_collision_197.obj": "28eaabf8e3f16bac1842dfddb18867970fd835dece61e6e557da19bac0dfe662",
+        "cad_collision_198.obj": "38be1b56319ce90c428544ef7305e048958314e96293adf2d114d7918d065ef4",
+        "cad_collision_199.obj": "8d929405e5f73bc60d82add70de7f920086a61726900fb9f11cc49b6ebf9700c",
+        "cad_collision_200.obj": "51dab24d41076364b556b21631941f4d299bfeeac2fbf3d4ffcafa12f932ef99",
+        "cad_collision_201.obj": "c380785419316ffd9e00f27178718711ecc188353fa30f902f2513ff47c03e72",
+        "cad_collision_202.obj": "3d718cbd86dbee01feb311999d20badb9bf0852f0e20e9bca3c2c9544d2bd962",
+        "cad_collision_203.obj": "f25f1628284710a16280893f45734abfe754b539d94a83f726bfaff183a7cff0",
+        "cad_collision_204.obj": "52cf9ee109ebf4ba71eca5d7b18225fdab9a88f1b922375c6475bea96d02df70",
+        "cad_collision_205.obj": "615bbb759dc4cd2c09bb696da7d72f24d73b3369992a8e2aecf7f6a929d03c83",
+        "cad_collision_206.obj": "cb26564e610121faf0427bd87645bbd006fc5aad949a72161582e791666c2213",
+        "cad_collision_207.obj": "3072d83edcbbf60f5b9711eae1bfca28a858741a9ef32df1216619fa0a857b7d",
+        "cad_collision_208.obj": "e4c82bbaccde9df7b3b7f05da415ae6c4da495ae1d3b8a9af8bb5d7931f835e5",
+        "cad_collision_209.obj": "adc4dbdd242804bacb0db20c22f89f8e8e8a740ea2ef60fca723aab66c045c44",
+        "cad_collision_210.obj": "9a600db38d4d962d1aa715c8e53de913ef094db53f29a1bf6cde21f118516647",
+        "cad_collision_211.obj": "b4dce0361e51aa0169720dbe2bb5b00528d8ed78997d16f525fe96c8cb37b424",
+        "cad_collision_212.obj": "51630cdf44a8c7fbc2c2fc4534d406c67133cf7cf2f59f53c70da9dc85ed652c",
+        "cad_collision_213.obj": "a5a88c7c03de08d196989e6bda49a94c05c2458156a5e7ffb9f48862bac03d5c",
+        "cad_collision_214.obj": "777a1ccd27df3a16d06cddbb182f9c2a61a9fc06f2d384f7197a42d7b79635ed",
+        "cad_collision_215.obj": "a079ab848d4704f20712f8d0bcac4d9adab6f121805fd086cf2d27fe9424a498",
+        "cad_collision_216.obj": "4b6a50df2a78703766625e69f0b20631f2ab10ce2ecea714abd7a0a40276bc02",
+        "cad_collision_217.obj": "f00df173e5fb7d6195f71e889d283c50c798a206496c52b7a7b4f4e76e08aa09",
+        "cad_collision_218.obj": "46edcf75a6a3ceddb7533f8af6c03513ac845a20116cef2f7832a69ba3908f64",
+        "cad_collision_219.obj": "189ba544513e8546b0c60c4d0e51a0b8a3e935fb251c4ef0db43379c35a8e07b",
+        "cad_collision_220.obj": "2389efd46796bce310def5540d068504bdd211c5ee51dea12e49f531d6eecd23",
+        "cad_collision_221.obj": "3afbae1a26abd383020fa5f1d4bf762fe9da73ab1ef13fb263dcce7581f8d952",
+        "cad_collision_222.obj": "d210fef9cd7b419b0da5a94e7ad6bae424dcd3ee39a89811fd431d2b1f207bd9",
+        "cad_collision_223.obj": "aa5252b13fc36074ef98bceb38ecc61d54c6afb41c60717e1019132a37ffe3e8",
+        "cad_collision_224.obj": "7ae7ec0af78e6b75c3d87243e4a5b3975ed0ee02db3d1f3a989a009862964a7e",
+        "cad_collision_225.obj": "794ed1312ef3f16079500a5e0be8a19e799480e093b1817387c670826b9a2e1e",
+        "cad_collision_226.obj": "6bd6587c2ce4dcd46e74b65ac5be1f11b9102e8494566837f850e41224602fc5",
+        "cad_collision_227.obj": "32287d64dc03909d98f136ea71abca4a548085066a9ad496edb2fda4f9a42926",
+        "cad_collision_228.obj": "f9e95df5a18d48dafb1f03983ed26901e5c7c8ac284a5857a0247ca52c3c5ce3",
+        "cad_collision_229.obj": "694e52f0b5aa7a2852f9d50401702e5e75e3f581b4620b1388d9420c7fdc7319",
+        "cad_collision_230.obj": "6bd867cbe4e8ba6a1cfe4e890738c1decca00e06f4a0b085896abfac9178880f",
+        "cad_collision_231.obj": "5d272cb72992373dfd341842b737fe638e0133c1cbf2b95fdf059db11c631f10",
+        "cad_collision_232.obj": "9697f5261139f6cbe658f57a33dced9a74cf7cf50511111d6f4513f455dc6a4e",
+        "cad_collision_233.obj": "27e66a1685e7fc00d5060e1937b7778888ff072ae930f5e2abb9f014b66cf735",
+        "cad_collision_234.obj": "5563fd46eb3731c4bd7576dcd6316f3d3658350a9ad75e702858a627135235fa",
+        "cad_collision_235.obj": "c43d6ebf5c90afa0bad6c7619ce6c346f320370ad0af477809990e424fc24788",
+        "cad_collision_236.obj": "26eb01ee0ae6da11d7ceaf1144708960aab8d0e29e26c8515806d29eff13497a",
+        "cad_collision_237.obj": "f02fa808ffae51fb4944428dcc5eb460e7fea2b3b51375dc4e378fa7e4a443b4",
+        "cad_collision_238.obj": "347c7fca439ddad38d4d85accf35f2b610252571d33b7a4ed8c8411411da1ee5",
+        "cad_collision_239.obj": "9a3de2d13889dc674e0bbaa3786ba69bd218eeb2759cd78aa2ecd8b20f6343f8",
+        "cad_collision_240.obj": "71fb02d1d5ad17c907eca5d6de1a3657e183f57655b88920ded382bf243ea46f",
+        "cad_collision_241.obj": "e76635e5eba2449ab8292faeac26f6277b6a34a4e45bc08ecc80caca7e80c406",
+        "cad_collision_242.obj": "2c6af2cfd0454d56da0cfb6e48a8f948807ef8df7483de5c18b145fa91581b79",
+        "cad_collision_243.obj": "eeb78ebecd288d6ea2370252c798c0830d5aacdad5ae74cb01132d86a85c7c38",
+        "cad_collision_244.obj": "b4ae56625b1301aacb2a3151f8344029175a07f2ef8d223cc2b6eb1254e8c470",
+        "cad_collision_245.obj": "52e11e51a96690d977ad4637beda171aeb6de47d5aacb1491b75663288866bbd",
+        "cad_collision_246.obj": "51dc857f0188146c71a80e13e557f84623fcebbb757f990587308618a6a7b1e6",
+        "cad_collision_247.obj": "c4f820233eea76ef196639b9e222052d23dc1ac38197aa64bdf77155a040108a",
+        "cad_collision_248.obj": "fd410517a9a064fe27df3e6f93c3260db37d9759357b28263ddf5753b88fc4c0",
+        "cad_collision_249.obj": "aae6471a3a10558ed48ccd629e18fb44ea677daa0b8e6f9f0b836527c18065b8",
+        "cad_collision_250.obj": "6561e6b35275bd05d4c918f5fd0e12423dc26ef451e3d01b80563feb322b1287",
+        "cad_collision_251.obj": "04195daac207359e0ee0f02afa2b17733b29414e24415350e65d842922efb81a",
+        "cad_collision_252.obj": "655b96d3ca7b67c4e09309a60ea2d72e2513289f775550b1803ac94b729929cf",
+        "cad_collision_253.obj": "421d4ebd534598efd4d6d8a387bbdb3efc2a791b10c0f1a56614256c2790d0de",
+        "cad_collision_254.obj": "bc990150b604ababb7cfbd16a859a8c87b74542235363869fb5a00ea89ecd397",
+        "cad_collision_255.obj": "5c7acf698ddf62db866f6f25811762f2452882fbceffa2f925eb4b1b237ee899",
+        "cad_collision_256.obj": "26f50bd29853f4c79f60ec72098d67e4f19b65a2e2cdca688a7fa9609e9fa24b",
+        "cad_collision_257.obj": "e72c7471ad1c5cbb208a3f1343cf4de967126be0fbdf7c8c9a35235d4bf0f7b7",
+        "cad_collision_258.obj": "e7ac066fc84ac1131faab663863dc54ee7a55d3b0509c9796f7227dc1a4f5fc8",
+        "cad_collision_259.obj": "d7e05f8e8760a3525da149d73e48d987abfa010dcefdecfe13f65e87e797af5c",
+        "cad_collision_260.obj": "d25f7d7d23750cd076bc73b30eb0c55bfe6bb338c318ea5311911ffe7bd05cc2",
+        "cad_collision_261.obj": "bd73599ae06b542e81a79672ca30255e42d8a3cbf20e6212e7ca4678e6d17170",
+        "cad_collision_262.obj": "37a584abefd7a961867a429226a3008e8eedf55acf8b6139f0b56ad2018114e7",
+        "cad_collision_263.obj": "f36db6a4e2e97b78a415a13458ceb3b8ac274bd67576cb3562be87da978ed623",
+        "cad_collision_264.obj": "4c4f8602e1b4cad665d238ea967cce898eef8caa15bfdded33f938868b14080d",
+        "cad_collision_265.obj": "32ccfeabffcae15b02171a0896660121014ca60c41d1fe910197dd23950561f9",
+        "cad_collision_266.obj": "3c0630232ac6f69f3215ea0b7e5c1a26c5b7b688acae7deb21eb380357957816",
+        "cad_collision_267.obj": "34841aff819c0f67a225a3f95edc03fbed8a99bc94ed6fa6518edeb886a73571",
+        "cad_collision_268.obj": "40baf4e6022829030c9a6db43b0e682130b6f157972cdd156055c6b037c20c97",
+        "cad_collision_269.obj": "ec80a3e652843cfc09953c78643215ccb056a3a40b45a18304eac0bc15dfdc91",
+        "cad_collision_270.obj": "d050dcb5d38fcc286b5e6fc4d66a27201624923c3a617c736439be28ed97bc0a",
+        "cad_collision_271.obj": "c411cdfc3af1d1254e2f2006fbcf20cc2122b2a37f4b9e62fafba7be52b0e041",
+        "cad_collision_272.obj": "9a9ac726f669cc3fc6d5ea4257f341899010eda0981d73e7d6677234b462a296",
+        "cad_collision_273.obj": "168f0dca513df545261593ae6c333cfd975a06c984ec28d9312b7bf7324490f1",
+        "cad_collision_274.obj": "fe35b60d7a36d55edd1ea65dfc9df3c208a05d20a3fe150c00588e2ab82b101f",
+        "cad_collision_275.obj": "15b795de0185787ad9ae0a315f59eb4179c094fe6a9c016d12177f9735bead45",
+        "cad_collision_276.obj": "905ca41dfdbb9cb6e9a23a4541a2a74f047bbc255baadef8c993587b944467c3",
+        "cad_collision_277.obj": "2190381bb074d6d0fc0f2c66fc05f6a5ce000dab864e4474d4b2940ddc50cf54",
+        "cad_collision_278.obj": "474c8ce9837bf5d33d1fff7cefdb6a5c896b09fdc68646dc44ebec4900cc4ed9",
+        "cad_collision_279.obj": "fc6c69370ab0f57eb3a3291d06260104e22cd660a1415366fdc7bb1a37588011",
+        "cad_collision_280.obj": "e8c24e9b6702dae1fde62b60c119f6289959a6a3a3306a16ceefaf461f67d8a3",
+        "cad_collision_281.obj": "64d22cbebc4dd06586abdaa4f283e94c8ef29446053e7e53451b2967eb89c29c",
+        "cad_collision_282.obj": "7ce662b44a71f98574455f50a737d4ededb483a9e06b2e9bc5f0f45bc20c5adf",
+        "cad_collision_283.obj": "578a9278048c648d2dd05676774853a5e67e05737c750f531f800e261a796618",
+        "cad_collision_284.obj": "b714479c886c0dfedc144525bd1a5d68eb287c2f1f3221c0658256efba51a41c",
+        "cad_collision_285.obj": "d09da8b45f24ed31fb901a67ed24f9925c72bed4d6b9de060794e2d870e3565a",
+        "cad_collision_286.obj": "8e2688608c006eda6eef84e8dad0c615d7a7c05d79eedf8ba39c1b01f5ad004e",
+        "cad_collision_287.obj": "fdbf19dcd57a188448ad16ec84c1eccd9b481bd98c7e1bf3f656f2d38208d2f0",
+        "cad_collision_288.obj": "c8bff72ee0045a4a8d11faecc84fd170114e98357b5d31c7df55914c3da9fcb8",
+        "cad_collision_289.obj": "7a6569aad90e39cc148bb7c5a7baf2fe965f3492b8780a09fb3bc5355fd835c9",
+        "cad_collision_290.obj": "46cfcf737294e49ef80e55b989bff54e52e33c57b0d787e1ccaeb844b7379cba",
+        "cad_collision_291.obj": "2a1c8010cc11c29875fb7c6b89f60f088c89462e6942d35aec5d78c1d37537bd",
+        "cad_collision_292.obj": "c59dcab61baadf11d537a016c9052f9743fd5cae5f3d03279cda430dac60d26a",
+        "cad_collision_293.obj": "fdb6c1f81166b38037c8c3989ab7c0718630725b6a9b3823f06511eed139ea81",
+        "cad_collision_294.obj": "4dcbe0123e9d3e7ac1343d05cb4822d596f303bb9f8ce8617d6ea88edf011b06",
+        "cad_collision_295.obj": "a05807bf1d4fe6cbf2032c4378adf6c61d9594683833511bd15f4c6aebff3e45",
+        "cad_collision_296.obj": "4c3e51b887ace0955c4f1580c2aef972a84671cd9bdbddd4d28b57a0045c65f1",
+        "cad_collision_297.obj": "6b111384313ea5aa41860911b051bdada97a22785657c38631c63cd33fa4473d",
+        "cad_collision_298.obj": "4922b97158b9f594fc55fcb97dc04de28aa3926a3180d0193866b611537b2d15"
+      },
+      "hole_diameters_m": [
+        0.0089,
+        0.008
+      ],
+      "cad_rotation": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "origin_in_rotated_cad_m": [
+        0.23999999463558197,
+        -4.819594323635101e-06,
+        -0.004112246446311474
+      ],
+      "size_m": [
+        0.47999998927116394,
+        0.04582162760198116,
+        0.025709008798003197
+      ],
+      "display_mesh_watertight": true,
+      "mesh_volume_m3": 9.432989331770462e-05,
+      "decoder": "sldkit 0.1.0 (MIT), commit c43b5ef752a0e58535b7f8f744f7d7c68e3c0e90",
+      "decode_status": "partial",
+      "fidelity_losses": [
+        {
+          "code": "sldprt/topology.body-hierarchy-derived",
+          "taxonomy": "topology_gauge_substituted",
+          "category": "topology",
+          "severity": "warning",
+          "message": "No body record was available; one body/region/shell hierarchy was derived.",
+          "stream": null,
+          "offset": null,
+          "tag": null
+        },
+        {
+          "code": "sldprt/tessellation.face-ownership-unresolved",
+          "taxonomy": "reference_graph_not_closed",
+          "category": "topology",
+          "severity": "warning",
+          "message": "26 DisplayLists tessellation table(s) do not resolve to B-rep face ownership. Geometry and native channels are retained without fabricating body or face references.",
+          "stream": null,
+          "offset": null,
+          "tag": null
+        },
+        {
+          "code": "sldprt/sketch.native-constraint",
+          "taxonomy": "feature_history_retained",
+          "category": "design_intent",
+          "severity": "warning",
+          "message": "2 planar or spatial sketch constraint(s) retain native relation kinds and operands without complete neutral geometric semantics.",
+          "stream": null,
+          "offset": null,
+          "tag": null
+        },
+        {
+          "code": "sldprt/sketch.native-geometry",
+          "taxonomy": "feature_history_retained",
+          "category": "design_intent",
+          "severity": "warning",
+          "message": "7 sketch entity geometry record(s) retain native kinds without solved neutral geometry.",
+          "stream": null,
+          "offset": null,
+          "tag": null
+        },
+        {
+          "code": "sldprt/feature.typed-operand-incomplete",
+          "taxonomy": "feature_history_retained",
+          "category": "design_intent",
+          "severity": "warning",
+          "message": "1 typed feature(s) retain native or unresolved required operation operands.",
+          "stream": null,
+          "offset": null,
+          "tag": null
+        }
+      ],
+      "collision_volume_m3": 9.432998201444872e-05
+    }
+  },
+  "profile": "rail_task_cad_v1",
+  "tool_stack": {
+    "sensor_length_m": 0.04,
+    "bracket_plate_thickness_m": 0.002,
+    "sensor_mass_kg": 0.2304,
+    "bracket_camera_mass_kg": 0.2,
+    "mass_is_assumption": true,
+    "camera_position_in_bracket_m": [
+      0.0012793,
+      0.0592937,
+      -0.035071
+    ]
+  },
+  "fixture_geometry": {
+    "pin_centers_m": [
+      [
+        -0.0010899669671859888,
+        -0.1315270145215427,
+        0.07802417861938499
+      ],
+      [
+        -0.0014557440371852082,
+        0.133476840207794,
+        0.07802417861938499
+      ]
+    ],
+    "pin_radii_m": [
+      0.0030910189896850002,
+      0.003341591291574
+    ],
+    "support_height_m": 0.07802417861938499,
+    "pin_top_height_m": 0.09173015962393499,
+    "hole_spacing_m": 0.2650041071649123,
+    "rail_hole_bottoms_m": [
+      [
+        -0.137999994635582,
+        4.819594323635101e-06,
+        -0.012854504399001598
+      ],
+      [
+        0.12700000536441802,
+        7.00714229371951e-05,
+        -0.012854504399001598
+      ]
+    ],
+    "seated_center_in_fixture_m": [
+      -0.001241647211323171,
+      0.006474946406671294,
+      0.09127868301838658
+    ],
+    "seated_rpy_deg": [
+      0.0,
+      0.0,
+      90.06497550901535
+    ]
+  }
+}

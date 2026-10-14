@@ -51,7 +51,7 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
             from isaacsim.core.utils.viewports import set_camera_view
 
             def frame_scene():
-                set_camera_view(eye=np.array([2.3, -2.3, 1.9]), target=np.array([.35, 0., .8]))
+                set_camera_view(eye=np.array([2.5, -2.5, 2.0]), target=np.array([.45, 0., .72]))
 
             frame_scene()
             if local:
@@ -109,7 +109,9 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
         link_names = list(tensor_view.shared_metatype.link_names)
         if link_names and isinstance(link_names[0], (list, tuple)):
             link_names = list(link_names[0])
-        force_indices = [link_names.index(name) for name in ("l_mount", "r_mount")]
+        force_links = (("l_force_sensor", "r_force_sensor") if config["scene"]["asset_profile"] == "rail_task_cad_v1"
+                       else ("l_mount", "r_mount"))
+        force_indices = [link_names.index(name) for name in force_links]
         flange_indices = [link_names.index(name) for name in ("TCP_Link_L", "TCP_Link_R")]
         applied_target = ready.copy(); applied_eef_target = eef_target
         applied_tick = 0; applied_command_id = command_id
@@ -153,7 +155,9 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
                     target = ready.copy(); command_deadline = 0
                     eef_target = [pose_vector(model.flange(side, ready)).tolist() for side in ("left", "right")]
                     command_tick = tick; command_id = "reset_hold"
-                    rail.set_world_pose(np.array(config["rail"]["initial_center"]), np.array([np.cos(np.pi/4), 0, 0, np.sin(np.pi/4)]))
+                    from ._dependencies import Rotation
+                    quaternion = Rotation.from_euler("xyz", config["rail"]["initial_rpy_deg"], degrees=True).as_quat()
+                    rail.set_world_pose(np.array(config["rail"]["initial_center"]), quaternion[[3, 0, 1, 2]])
                     rail.set_linear_velocity(np.zeros(3)); rail.set_angular_velocity(np.zeros(3))
                     if local:
                         local.program_origin_tick = tick

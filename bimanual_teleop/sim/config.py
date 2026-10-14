@@ -52,6 +52,16 @@ def validate(config):
         if not math.isfinite(runtime[key]) or runtime[key] <= 0:
             raise ValueError(f"Invalid runtime setting: {key}")
     rail = config["rail"]
+    scene = config["scene"]
+    if scene["asset_profile"] != "rail_task_cad_v1":
+        raise ValueError("Unsupported scene asset profile")
+    if type(scene["bin_stack_count"]) is not int or scene["bin_stack_count"] <= 0:
+        raise ValueError("Box stack count must be a positive integer")
+    if not math.isfinite(scene["bin_stack_pitch_m"]) or scene["bin_stack_pitch_m"] <= 0:
+        raise ValueError("Box stack pitch must be finite and positive")
+    for name in ("initial_center", "initial_rpy_deg"):
+        if len(rail[name]) != 3 or not all(math.isfinite(value) for value in rail[name]):
+            raise ValueError(f"Rail {name} requires three finite values")
     length, width, height = rail["size_m"]
     diameter, spacing = rail["hole_diameter_m"], rail["hole_spacing_m"]
     if not all(math.isfinite(v) and v > 0 for v in (length, width, height, diameter, spacing, rail["mass_kg"])):

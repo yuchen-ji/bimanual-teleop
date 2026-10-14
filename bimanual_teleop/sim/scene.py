@@ -137,6 +137,12 @@ def build_scene(world, config, model, capture=True):
                 decomposition.CreateMaxConvexHullsAttr(64)
                 decomposition.CreateHullVertexLimitAttr(64)
                 decomposition.CreateVoxelResolutionAttr(500000)
+            if link.endswith(("_force_sensor", "_camera_bracket")) and prim.IsA(UsdGeom.Mesh):
+                UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexDecomposition")
+                decomposition = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
+                decomposition.CreateMaxConvexHullsAttr(32)
+                decomposition.CreateHullVertexLimitAttr(64)
+                decomposition.CreateVoxelResolutionAttr(500000)
             if hand:
                 UsdShade.MaterialBindingAPI.Apply(prim).Bind(fingers, materialPurpose="physics")
     world.scene.add_default_ground_plane()
@@ -146,22 +152,41 @@ def build_scene(world, config, model, capture=True):
     metal = _material(stage, "/World/Materials/Rail", (.55, .58, .62), config["rail"]["friction"], .75)
     fixture_material = _material(stage, "/World/Materials/Fixture", (.2, .23, .27), config["rail"]["friction"], .5)
     bin_material = _material(stage, "/World/Materials/Bins", (.12, .28, .48))
-    _box(stage, "/World/Table", config["scene"]["table_center"], config["scene"]["table_size"], matte)
+    cad_scene = config["scene"]["asset_profile"] == "rail_task_cad_v1"
+    if cad_scene:
+        table = UsdGeom.Xform.Define(stage, "/World/Table")
+        table.AddTranslateOp().Set(Gf.Vec3d(*config["scene"]["table_center"]))
+        _bind(_mesh(stage, "/World/Table/Mesh", ROOT / "assets/generated/task/table.obj", True), matte)
+    else:
+        _box(stage, "/World/Table", config["scene"]["table_center"], config["scene"]["table_size"], matte)
     fixture = UsdGeom.Xform.Define(stage, "/World/Fixture")
     fixture.AddTranslateOp().Set(Gf.Vec3d(*config["scene"]["fixture_origin"]))
-    _bind(_mesh(stage, "/World/Fixture/Mesh", ROOT / "assets/generated/fixture.obj", collision=True), fixture_material)
+    reduced = manifest.get("cad", {}).get("models", {}).get("fixture", {}).get("collision") if cad_scene else None
+    _bind(_mesh(stage, "/World/Fixture/Mesh", ROOT / "assets/generated/task/fixture.obj", collision=not bool(reduced)), fixture_material)
+    if reduced:
+        collider = _mesh(stage, "/World/Fixture/Collision", ROOT / "assets/generated" / reduced["mesh"], collision=True)
+        collider.CreateVisibilityAttr("invisible")
     length, width, height = config["scene"]["bin_inner_size"]
     wall = config["scene"]["bin_wall"]
     for index, center in enumerate(config["scene"]["bin_centers"]):
         center = np.asarray(center)
         base = f"/World/Bin_{index}"
+        if cad_scene:
+            for layer in range(config["scene"]["bin_stack_count"]):
+                box = UsdGeom.Xform.Define(stage, base+f"/Layer_{layer+1}")
+                position = center.copy()
+                position[2] -= (config["scene"]["bin_stack_count"]-1-layer)*config["scene"]["bin_stack_pitch_m"]
+                box.AddTranslateOp().Set(Gf.Vec3d(*position))
+                _bind(_mesh(stage, base+f"/Layer_{layer+1}/Mesh", ROOT / "assets/generated/task/bins.obj", True), bin_material)
+            continue
         _box(stage, base+"/Floor", center+[0, 0, wall/2], [length+2*wall, width+2*wall, wall], bin_material)
         for sign in (-1, 1):
             _box(stage, base+f"/X_{sign+1}", center+[sign*(length+wall)/2, 0, height/2], [wall, width+2*wall, height], bin_material)
             _box(stage, base+f"/Y_{sign+1}", center+[0, sign*(width+wall)/2, height/2], [length, wall, height], bin_material)
     rail = UsdGeom.Xform.Define(stage, "/World/Rail")
     rail.AddTranslateOp().Set(Gf.Vec3d(*config["rail"]["initial_center"]))
-    rail.AddOrientOp().Set(Gf.Quatf(np.cos(np.pi/4), Gf.Vec3f(0, 0, np.sin(np.pi/4))))
+    rail_quaternion = Rotation.from_euler("xyz", config["rail"]["initial_rpy_deg"], degrees=True).as_quat()
+    rail.AddOrientOp().Set(Gf.Quatf(float(rail_quaternion[3]), Gf.Vec3f(*rail_quaternion[:3])))
     UsdPhysics.RigidBodyAPI.Apply(rail.GetPrim())
     body = PhysxSchema.PhysxRigidBodyAPI.Apply(rail.GetPrim()); body.CreateEnableCCDAttr(True)
     body.CreateSolverPositionIterationCountAttr(12)
@@ -189,8 +214,9 @@ def build_scene(world, config, model, capture=True):
             orientation = Rotation.from_matrix(parent_pose[:3, :3].T @ world_orientation).as_quat()
         else:
             side, prefix = ("left", "l") if index == 1 else ("right", "r")
-            parent = robot_path + f"/{prefix}_mount"
-            mount_pose = model.link_pose(f"{prefix}_mount", zero)
+            parent_link = f"{prefix}_camera_bracket" if cad_scene else f"{prefix}_mount"
+            parent = robot_path + "/" + parent_link
+            mount_pose = model.link_pose(parent_link, zero)
             tips = [model.link_pose(f"{prefix}_{finger}_tip", zero)[:3, 3]
                     for finger in ("thumb", "index_finger", "middle_finger", "ring_finger", "pinky")]
             # Generate one rigid mounting transform from open-hand landmarks.
@@ -212,7 +238,8 @@ def build_scene(world, config, model, capture=True):
             curl_direction = mount_pose[:3, :3].T @ (np.mean(curled_tips, axis=0)-np.mean(open_tips, axis=0))
             if np.dot(normal, curl_direction) < 0:
                 normal = -normal
-            position = tip_center*.5 + normal*.12 - along*.06
+            position = (np.array(manifest["cad"]["tool_stack"]["camera_position_in_bracket_m"])
+                        if cad_scene else tip_center*.5 + normal*.12 - along*.06)
             orientation = look_at(position, tip_center*.65, up=along)
         if not stage.GetPrimAtPath(parent).IsValid():
             raise RuntimeError(f"Imported camera mounting link was not found: {parent}")
@@ -225,7 +252,8 @@ def build_scene(world, config, model, capture=True):
         camera.CreateFocalLengthAttr(focal_length)
         camera.CreateHorizontalApertureAttr(float(aperture)); camera.CreateVerticalApertureAttr(float(aperture*height/width))
         camera.CreateClippingRangeAttr(Gf.Vec2f(.01, 10.))
-        housing = _box(stage, path+"/Housing", (0, 0, .014), (.09, .025, .025), fixture_material)
+        if index == 0 or not cad_scene:
+            _box(stage, path+"/Housing", (0, 0, .014), (.09, .025, .025), fixture_material)
         camera_paths.append(path)
         if capture:
             product = rep.create.render_product(path, (width, height))

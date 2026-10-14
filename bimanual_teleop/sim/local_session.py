@@ -64,7 +64,7 @@ class LocalSession:
                     "asset_signature": self.manifest.get("robot_signature", self.manifest["robot_urdf_sha256"]),
                     "joint_names": list(self.model.names), "clock": "simulation nanoseconds; no pause compression",
                     "eef_frames": "each shoulder joint-origin base -> flange; XYZW",
-                    "wrench": "incoming fixed-joint force on hand mount; includes gravity/inertia"}
+                    "wrench": "incoming fixed-joint reaction at force-sensor input (legacy: hand mount); local link frame, N and N.m; includes gravity/inertia and tool masses"}
         metadata["config"]["network"]["token"] = "[redacted]"
         self.recorder = SimRecorder(self.directory/f"episode_{self.index:06d}", metadata,
                                    self.config["cameras"]["width"], self.config["cameras"]["height"], codec=self.codec)

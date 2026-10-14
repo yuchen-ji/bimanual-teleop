@@ -1,4 +1,4 @@
-"""Prepare the supplied models without changing their original attachments."""
+"""Rebuild simulation models from the repository's curated source resources."""
 
 from __future__ import annotations
 
@@ -7,24 +7,17 @@ import hashlib
 import json
 import math
 import os
-import re
 import shutil
-import subprocess
 import xml.etree.ElementTree as ET
-import zipfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from bimanual_teleop.sim._dependencies import np
 
 from . import ROOT
 from .config import load_config
 
-ATTACHMENTS = {
-    "robot": "/home/jiyuchen/.codex/attachments/753942fe-50c3-4aa4-8836-d3b9fe65f4b0/Pro-m6-696-夹爪.rar",
-    "hands": "/home/jiyuchen/.codex/attachments/b5a1bced-7883-4072-b620-c65d0d691c87/hand2_beta2.zip",
-    "fixture": "/home/jiyuchen/.codex/attachments/0dbac7b9-ff5b-43c6-9d2a-4d9824aeee99/导轨台2.step",
-    "camera": "/home/jiyuchen/.codex/attachments/63d95243-3a81-4f57-9033-c6a3d561e3cf/D435i_Solid.SLDPRT",
-}
+ROBOT_SOURCE = ROOT / "assets/source/robot/urdf/robot.urdf"
+HAND_SOURCE = ROOT / "assets/source/hand2"
 
 
 def digest(path):
@@ -33,51 +26,6 @@ def digest(path):
         for block in iter(lambda: file.read(1024 * 1024), b""):
             result.update(block)
     return result.hexdigest()
-
-
-def _safe_names(names):
-    for name in names:
-        path = PurePosixPath(name)
-        if path.is_absolute() or ".." in path.parts:
-            raise ValueError(f"Unsafe archive member: {name}")
-
-
-def fixture_geometry(path):
-    """Read the paired outward 6 mm pin surfaces and their common CAD axis."""
-    text = Path(path).read_text(encoding="utf-8")
-    entities = dict(re.findall(r"#(\d+)\s*=\s*(.*?);", text, re.S))
-    refs = lambda value: re.findall(r"#(\d+)", value)
-    vector = lambda key: np.array([float(v) for v in entities[key].split("(")[-1].rstrip(")").split(",")])
-    cylinders = []
-    for key, value in entities.items():
-        if value.startswith("CYLINDRICAL_SURFACE") and abs(float(value.rsplit(",", 1)[1].rstrip(")")) - .003) < 1e-9:
-            outside = any(v.startswith("ADVANCED_FACE") and f"#{key},.T." in v for v in entities.values())
-            if outside:
-                placement = refs(entities[refs(value)[0]])
-                cylinders.append((vector(placement[0]), vector(placement[1])))
-    if len(cylinders) != 2:
-        raise ValueError("Expected exactly two outward 6 mm locating pins; inspect the new fixture CAD")
-    cylinders.sort(key=lambda item: item[0][0])
-    points = np.array([point for point, _axis in cylinders])
-    up = sum(axis for _point, axis in cylinders)
-    up /= np.linalg.norm(up)
-    across = points[1] - points[0]
-    across -= up * np.dot(across, up)
-    across /= np.linalg.norm(across)
-    forward = np.cross(across, up)
-    # New fixture coordinates are front/left/up. The long rail axis is local Y.
-    basis = np.stack([forward, across, up], axis=0)
-    all_points = np.array([vector(key) for key, value in entities.items() if value.startswith("CARTESIAN_POINT")])
-    transformed = all_points @ basis.T
-    center = points.mean(axis=0)
-    origin = basis @ center
-    origin[2] = transformed[:, 2].min()
-    pin_centers = points @ basis.T - origin
-    return {"cad_to_fixture_rotation": basis.tolist(), "cad_origin_in_fixture_axes": origin.tolist(),
-            "pin_centers_m": pin_centers.tolist(), "pin_diameter_m": .006,
-            "hole_spacing_m": float(np.linalg.norm((points[1] - points[0]) @ basis[:2].T)),
-            "support_height_m": float(pin_centers[:, 2].mean()),
-            "pin_top_height_m": float((transformed - origin)[:, 2].max())}
 
 
 def write_obj(path, vertices, faces):
@@ -123,56 +71,6 @@ def rail_meshes(directory, settings):
         colliders.append(name)
     return {"visual": "rail.obj", "colliders": colliders, "hole_centers_m": [[-spacing/2, 0, 0], [spacing/2, 0, 0]],
             "cross_section_area_m2": float(sum(abs(np.cross(points[t[1]]-points[t[0]], points[t[2]]-points[t[0]]))/2 for t in triangles))}
-
-
-def step_mesh(source, destination, geometry):
-    from OCP.STEPControl import STEPControl_Reader
-    from OCP.IFSelect import IFSelect_RetDone
-    from OCP.BRepMesh import BRepMesh_IncrementalMesh
-    from OCP.BRep import BRep_Tool
-    from OCP.TopExp import TopExp_Explorer
-    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
-    from OCP.TopoDS import TopoDS
-    from OCP.TopLoc import TopLoc_Location
-
-    reader = STEPControl_Reader()
-    if reader.ReadFile(str(source)) != IFSelect_RetDone:
-        raise ValueError("Could not read fixture STEP")
-    reader.TransferRoots()
-    shape = reader.OneShape()
-    # OCP convention is millimetres even when the STEP declares metres.
-    BRepMesh_IncrementalMesh(shape, .15, False, .15, True).Perform()
-    vertices, triangles = [], []
-    explorer = TopExp_Explorer(shape, TopAbs_FACE)
-    basis, origin = np.array(geometry["cad_to_fixture_rotation"]), np.array(geometry["cad_origin_in_fixture_axes"])
-    while explorer.More():
-        face = TopoDS.Face_s(explorer.Current())
-        location = TopLoc_Location()
-        mesh = BRep_Tool.Triangulation_s(face, location)
-        if mesh is not None:
-            start = len(vertices)
-            for i in range(1, mesh.NbNodes()+1):
-                p = mesh.Node(i).Transformed(location.Transformation())
-                vertices.append((basis @ (np.array([p.X(), p.Y(), p.Z()]) / 1000) - origin).tolist())
-            for i in range(1, mesh.NbTriangles()+1):
-                a, b, c = mesh.Triangle(i).Get()
-                if face.Orientation() == TopAbs_REVERSED:
-                    b, c = c, b
-                triangles.append([start+a-1, start+b-1, start+c-1])
-        explorer.Next()
-    if not vertices:
-        raise ValueError("Fixture STEP did not contain any tessellatable faces")
-    vertices = np.asarray(vertices)
-    # STEP surface-placement reference points are not shape extrema. Ground the
-    # actual tessellated base, rather than using unrelated construction origins.
-    base_shift = float(vertices[:, 2].min())
-    vertices[:, 2] -= base_shift
-    geometry["cad_origin_in_fixture_axes"][2] += base_shift
-    for center in geometry["pin_centers_m"]:
-        center[2] -= base_shift
-    geometry["support_height_m"] -= base_shift
-    geometry["pin_top_height_m"] -= base_shift
-    write_obj(destination, vertices, triangles)
 
 
 def _clean_robot(source, hands, destination, config):
@@ -262,45 +160,33 @@ def _clean_robot(source, hands, destination, config):
             "frame_mass_approximation_kg": .001, "frame_mass_repaired_links": repaired_frames}
 
 
-def prepare(config, sources=None):
-    sources = {key: Path(value) for key, value in (sources or ATTACHMENTS).items()}
-    manifest = {key: {"filename": p.name, "sha256": digest(p)} for key, p in sources.items()}
-    source_dir, generated = ROOT / "assets/source", ROOT / "assets/generated"
-    source_dir.mkdir(parents=True, exist_ok=True); generated.mkdir(parents=True, exist_ok=True)
-    archive_tool = shutil.which("bsdtar")
-    if archive_tool is None and Path("/opt/miniconda3/bin/bsdtar").is_file():
-        archive_tool = "/opt/miniconda3/bin/bsdtar"
-    if archive_tool is None:
-        raise RuntimeError("RAR extraction requires bsdtar; install it or add it to PATH")
-    names = subprocess.check_output([archive_tool, "-tf", str(sources["robot"])], text=True).splitlines()
-    _safe_names(names)
-    subprocess.run([archive_tool, "-xf", str(sources["robot"]), "-C", str(source_dir)], check=True)
-    with zipfile.ZipFile(sources["hands"]) as archive:
-        _safe_names(archive.namelist())
-        archive.extractall(source_dir)
-    for key in ("fixture", "camera"):
-        shutil.copy2(sources[key], source_dir / sources[key].name)
-    robot = source_dir / "Pro-m6-696-夹爪/Pro-m6-696/urdf/Pro-m6-696.urdf"
-    repairs = _clean_robot(robot, source_dir / "hand2_beta2", generated / "robot.urdf", config)
-    geometry = fixture_geometry(sources["fixture"])
-    if abs(geometry["hole_spacing_m"] - config["rail"]["hole_spacing_m"]) > .001:
-        raise ValueError("Configured hole spacing does not match fixture pins")
-    step_mesh(sources["fixture"], generated / "fixture.obj", geometry)
-    rail = rail_meshes(generated / "rail", config["rail"])
-    manifest.update(fixture_geometry=geometry, rail=rail, **repairs, robot_urdf_sha256=digest(generated / "robot.urdf"),
-                    camera_visual="simplified 90x25x25 mm housing; SLDPRT retained as mounting reference")
-    manifest["robot_signature"] = hashlib.sha256((manifest["robot_urdf_sha256"]+manifest["robot"]["sha256"]+manifest["hands"]["sha256"]).encode()).hexdigest()
-    (generated / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    return manifest
+def prepare(config, task_models=None):
+    """Rebuild from the repository's curated sources, without external archives."""
+    from .resources import source_components, tree_digest
+    from .cad_assets import prepare_steps, prepare_rail, fixture_geometry, install
+    if config["scene"]["asset_profile"] != "rail_task_cad_v1":
+        raise ValueError("Only the tracked rail_task_cad_v1 asset profile can be rebuilt")
+    generated = ROOT / "assets/generated"
+    generated.mkdir(parents=True, exist_ok=True)
+    components = source_components()
+    manifest = {name: {"sha256": tree_digest(files), "sha256_kind": "source_tree",
+                       "files": [str(path.relative_to(ROOT)) for path in sorted(files)]}
+                for name, files in components.items()}
+    repairs = _clean_robot(ROBOT_SOURCE, HAND_SOURCE, generated / "robot.urdf", config)
+    manifest.update(**repairs, robot_urdf_sha256=digest(generated / "robot.urdf"))
+    (generated / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+    cad = prepare_steps(Path(task_models) if task_models else ROOT / "assets/source/rail_task")
+    rail = prepare_rail(cad)
+    cad["fixture_geometry"] = fixture_geometry(cad, rail)
+    return install(cad, config)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare supplied Tianji/Hand2/fixture assets")
+    parser = argparse.ArgumentParser(description="Rebuild simulation assets from Git-tracked source models")
     parser.add_argument("--config")
-    for name in ATTACHMENTS:
-        parser.add_argument(f"--{name}", default=ATTACHMENTS[name])
+    parser.add_argument("--task-models", help="Optional replacement CAD folder; default is the tracked source/rail_task")
     args = parser.parse_args()
-    result = prepare(load_config(args.config), {name: getattr(args, name) for name in ATTACHMENTS})
+    result = prepare(load_config(args.config), args.task_models)
     print(json.dumps({"robot": result["robot_urdf_sha256"], "fixture": result["fixture_geometry"],
                       "colliders": len(result["rail"]["colliders"])}, ensure_ascii=False, indent=2))
 

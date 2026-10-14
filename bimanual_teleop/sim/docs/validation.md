@@ -1,5 +1,31 @@
 # 验证记录
 
+## 模型清理与 Git 资源复现（2026-10-14）
+
+删除仿真目录中 227 个未使用或重复文件，目录磁盘占用从约 378 MiB 降至 173 MiB。保留 467 个必需源文件和运行资源，并加入 Git 跟踪；资源说明和 CAD / 网格的字节保留规则一并跟踪。采集数据、镜像和运行缓存继续忽略。
+
+- `python -m bimanual_teleop.sim.resources --check-git`：无缺失、无未引用、无未跟踪的必需资源。
+- 从 Git 暂存区导出完整项目，在独立目录运行 `python -m bimanual_teleop.sim.assets`：384 个派生文件全部与当前版本逐字节一致，无需聊天附件或项目外 CAD。
+- 清理后实际运行 `python -m bimanual_teleop.sim --headless --steps 120`：正常完成，54 关节，退出状态 closed、tick=120、error=null。
+- 项目测试 787 项通过；仿真测试共 31 项，30 项通过、1 项因主机缺少 Torch 跳过。
+
+复现与清理报告保存在本机 `.runtime/resource-reproduce-report.json`、`.runtime/asset-cleanup-report.json`，测试日志为 `.runtime/resource-*-tests.log`；这些验证输出不进入 Git。日常启动命令和录制格式保持一致。
+
+## 当前导轨任务 CAD（2026-10-14）
+
+使用“导轨任务模型”中的长导轨、长导轨台、桌子、转运箱和腕部组件重新装配。实际 Isaac 验收报告为 [cad-validation/report.json](../data/cad-validation/report.json)，`passed=true`，属于验证输出，不是学习示范。
+
+- 场景中有两侧各五层、共十个转运箱；机器人保持 54 个可动关节。
+- 默认导轨落稳在长导轨台上，支撑高度误差约 0.59 mm；孔销对齐后在 1 mm 高度内释放，误差约 0.55 mm。20 mm 自由跌落不保证自行插入，未作为新 CAD 的通过条件。
+- 左右传感器输入固定关节均能读到有限反力；相机刚性随动检查的最大位置误差小于 1 µm。
+- 三路 640×480 RGB 均通过冻结物理时间渲染和移动可见方块检查，排除了重复旧帧。
+- 完整可见导轨台约 112 万面；碰撞网格为 24 万面，24,244 个表面采样点的最大距离误差约 0.079 mm。长导轨的 299 个凸碰撞体总体积与源网格相符，定位孔保持空心。
+- 项目回归测试 787 项通过；仿真测试共 30 项，29 项通过、1 项因主机缺少 Torch 而跳过；SDK 隔离导入测试另复查 3 项通过。
+
+本轮三相机测得约 5.0 帧/墙钟秒、0.167 倍实时。240 / 120 / 30 Hz 仍是仿真时间频率，尚未达到三图像实时 30 FPS。默认查看模式不创建三路采集渲染产品。
+
+本轮原图为 `data/cad-validation/settled_camera_0.png`、`settled_camera_1.png`、`settled_camera_2.png`，模型来源、装配顺序和质量假设见 [模型说明](task-models.md)。以下为替换前环境的历史记录，不替代当前 CAD 的验收结果。
+
 ## 2026-10-14：单命令原生界面与本地记录
 
 日常入口改为 `python -m bimanual_teleop.sim`。在用户 Remmina / XRDP `:10` 中实际打开 Isaac 原生窗口，完整机器人、桌面、箱子与导轨台可见，54 关节状态有限且 tick 持续增加；默认不运行 server / client / 网页服务，也不创建三相机 RGB 渲染产品。[原生视图报告](../data/live/native-view-validation.json) · [原生窗口截图](../data/live/native-local-20261014.png)。

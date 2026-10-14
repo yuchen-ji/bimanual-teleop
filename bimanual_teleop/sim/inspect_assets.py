@@ -65,16 +65,15 @@ def main():
             mesh = trimesh.load((path.parent / asset.get("filename")).resolve(), force="mesh")
             color = "#d1d5db" if link.get("name").startswith(("l_", "r_")) else "#5686ac"
             add(mesh, matrix @ offset, color)
-    add(trimesh.creation.box(config["scene"]["table_size"]), transform(config["scene"]["table_center"]), "#b49c7a")
-    add(trimesh.load(ROOT / "assets/generated/fixture.obj", force="mesh"), transform(config["scene"]["fixture_origin"]), "#68717a", 6000)
-    add(trimesh.load(ROOT / "assets/generated/rail/rail.obj", force="mesh"), transform(config["rail"]["initial_center"], (0, 0, np.pi/2)), "#f59e0b", 5000)
+    add(trimesh.load(ROOT / "assets/generated/task/table.obj", force="mesh"), transform(config["scene"]["table_center"]), "#b49c7a")
+    add(trimesh.load(ROOT / "assets/generated/task/fixture.obj", force="mesh"), transform(config["scene"]["fixture_origin"]), "#68717a", 6000)
+    add(trimesh.load(ROOT / "assets/generated/rail/rail.obj", force="mesh"), transform(config["rail"]["initial_center"], np.deg2rad(config["rail"]["initial_rpy_deg"])), "#f59e0b", 5000)
     for index, center in enumerate(config["scene"]["bin_centers"]):
-        length, width, height = config["scene"]["bin_inner_size"]
-        wall = config["scene"]["bin_wall"]
-        for sign in (-1, 1):
-            add(trimesh.creation.box((wall, width, height)), transform(np.asarray(center)+[sign*length/2, 0, height/2]), "#3d7191")
-            add(trimesh.creation.box((length, wall, height)), transform(np.asarray(center)+[0, sign*width/2, height/2]), "#3d7191")
-        axes.text(center[0], center[1], center[2]+height+.04, "Raw parts" if index == 0 else "Finished parts")
+        for layer in range(config["scene"]["bin_stack_count"]):
+            position = np.array(center)
+            position[2] -= layer*config["scene"]["bin_stack_pitch_m"]
+            add(trimesh.load(ROOT / "assets/generated/task/bins.obj", force="mesh"), transform(position), "#3d7191")
+        axes.text(center[0], center[1], center[2]+.22, "Raw parts" if index == 0 else "Finished parts")
     axes.set(xlim=(-.3, 1.1), ylim=(-.8, .8), zlim=(0, 1.5), xlabel="Front X (m)", ylabel="Left Y (m)", zlabel="Up Z (m)")
     axes.set_box_aspect((1.4, 1.6, 1.5)); axes.view_init(elev=24, azim=-135)
     axes.set_title("Prepared assets — layout inspection only")

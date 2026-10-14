@@ -1,6 +1,3 @@
-# Same robot and rail task, with a wider table and shifted bins.
+# Same CAD table and rail fixture; increase spacing between the two box stacks.
 scene:
-  table_size: [1.0, 1.8, 0.05]
-  bin_centers: [[0.5, 0.58, 0.75], [0.5, -0.58, 0.75]]
-rail:
-  initial_center: [0.5, 0.58, 0.7725]
+  bin_centers: [[0.72, 0.66, 0.712], [0.72, -0.66, 0.712]]

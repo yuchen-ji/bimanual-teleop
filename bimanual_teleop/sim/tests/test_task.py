@@ -10,6 +10,8 @@ from bimanual_teleop.sim.task import TaskMonitor
 class TaskTests(unittest.TestCase):
     def setUp(self):
         self.config = load_config()
+        # This synthetic fixture deliberately exercises the original 211 mm pair.
+        self.config["rail"].update(hole_spacing_m=.211, size_m=[.4, .045, .025])
         self.geometry = {"pin_centers_m": [[0, -.1055, .04], [0, .1055, .04]], "support_height_m": .04, "pin_top_height_m": .049}
         self.monitor = TaskMonitor(self.config, self.geometry)
 

@@ -1,0 +1,13 @@
+{
+  "original_archives": {
+    "robot": {
+      "filename": "Pro-m6-696-夹爪.rar",
+      "sha256": "9f7c5f8bc68ff07ebf89b18b03de392d3fb29e1ae39a17a2751bfcf0a3765e4e"
+    },
+    "hands": {
+      "filename": "hand2_beta2.zip",
+      "sha256": "7f1ecd3f3bd0e7df936592d4d9b76f6f3e7fec1f125fbd0e6aa9f803654c4a9f"
+    }
+  },
+  "note": "User supplied models; keep the articulated robot without old grippers and the two mounted Hand2 URDFs with their referenced meshes."
+}

@@ -1,0 +1,7 @@
+# Preserve original CAD/mesh bytes and avoid line-by-line geometry diffs.
+*.STEP binary
+*.step binary
+*.SLDPRT binary
+*.STL binary
+*.stl binary
+*.obj binary

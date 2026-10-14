@@ -2,6 +2,8 @@
 
 默认使用一个 Isaac 进程，不启动网络桥接或网页查看器。所有仿真文件保留在本目录，真机遥操与采集入口保持独立。
 
+当前默认场景使用 `assets/source/rail_task/` 中复制的导轨任务 CAD：480 mm 长导轨、长导轨台、完整桌子、两侧各五层转运箱，以及两个腕部的力传感器、相机与支架。机器人面向桌子窄边，导轨默认在导轨台上，Reset 恢复同一位置。[模型与装配说明](docs/task-models.md)
+
 ## 日常使用
 
 在 **Remmina 远程桌面内的终端**运行：
@@ -44,15 +46,15 @@ python -m bimanual_teleop.sim --record \
 
 配置与轨迹文件放在项目目录内，启动器自动映射为容器路径。共享的可写 overlay 一次只运行一个 Isaac 实例；先关闭旧窗口再启动下一次。
 
-例如 `--config bimanual_teleop/sim/configs/wide_workspace.yaml` 使用更宽的桌面与移动后的料箱。它演示同一任务的布局变化；新物体与新任务条件的支持范围见架构说明。
+例如 `--config bimanual_teleop/sim/configs/wide_workspace.yaml` 增加两侧箱堆间距，保留真实 CAD 桌子尺寸。它演示同一任务的布局变化；新物体与新任务条件的支持范围见架构说明。
 
 ## 首次安装与资料
 
 [从零搭建手册](docs/zero-to-simulation.md) · [简化架构与数据主干](docs/architecture.md) · [验证记录](docs/validation.md)
 
-主机使用 `bimanual-teleop` Conda；Isaac 使用官方 5.1.0 容器。首次运行 `assets` 准备模型、`docker/bootstrap-apptainer.sh` 准备运行时。本机已完成。已删除重复的 Three.js 网页全景实现、浏览器资源安装入口及 8081 预览转发；日常查看不再依赖它们。
+主机使用 `bimanual-teleop` Conda；Isaac 使用官方 5.1.0 容器。模型已经随 Git 跟踪，克隆后可直接使用；首次运行 `docker/bootstrap-apptainer.sh` 准备 Isaac 运行时。本机已完成。已删除重复的 Three.js 网页全景实现、浏览器资源安装入口及 8081 预览转发；日常查看不再依赖它们。
 
-模型、原始示范、导出、缓存分别在 `assets`、`data/recordings`、`data/datasets`、`.runtime`，均不进入 Git。原始示范和离线方案保留源 UUID；B 点仍然不暂停、不自动命名任务。
+模型在 `assets` 中，原始 CAD、最小 URDF / STL 源模型和直接运行网格均进入 Git；详见 [资源清单](assets/README.md)。`data/recordings`、`data/datasets` 与 `.runtime` 中的数据和运行缓存不进入 Git。原始示范和离线方案保留源 UUID；B 点仍然不暂停、不自动命名任务。
 
 ## 可选：以后接入外部设备
 
@@ -66,3 +68,5 @@ python -m unittest discover -s tests -q
 ```
 
 停止当前 Isaac 后，才可运行 `docker/exec-apptainer.sh /isaac-sim/python.sh -m bimanual_teleop.sim.validate_isaac` 或 `python -m bimanual_teleop.sim.smoke`。前者检查真实物理，后者检查保留的远程桥接链路。配置的 240 / 120 / 30 Hz 是仿真时间频率，实际墙钟性能以目标设备实测为准。
+
+检查模型完整性与 Git 跟踪：`python -m bimanual_teleop.sim.resources --check-git`。重新生成模型使用仓库内的源文件：`python -m bimanual_teleop.sim.assets`，无需原始聊天附件。

@@ -29,8 +29,9 @@ class TaskMonitor:
         contacts = state.get("hand_contact_force")
         released = contacts is not None and len(contacts) == 2 and all(np.isfinite(v) and v <= .05 for v in contacts)
         rail = self.config["rail"]
-        local_bottoms = np.array([[-rail["hole_spacing_m"]/2, 0, -rail["size_m"][2]/2],
-                                  [rail["hole_spacing_m"]/2, 0, -rail["size_m"][2]/2]])
+        local_bottoms = np.array(self.geometry.get("rail_hole_bottoms_m", [
+            [-rail["hole_spacing_m"]/2, 0, -rail["size_m"][2]/2],
+            [rail["hole_spacing_m"]/2, 0, -rail["size_m"][2]/2]]))
         bottoms = local_bottoms @ rotation.T + position
         fixture = np.array(self.config["scene"]["fixture_origin"])
         pins = np.array(self.geometry["pin_centers_m"])+fixture
@@ -39,7 +40,9 @@ class TaskMonitor:
         bottom_z = float(bottoms[:, 2].mean())
         gap = abs(bottom_z-(fixture[2]+self.geometry["support_height_m"]))
         insertion = fixture[2]+self.geometry["pin_top_height_m"]-float(bottoms[:, 2].max())
-        seated = radial <= .0015 and angle <= np.deg2rad(3) and gap <= .001 and insertion >= .005 and speed <= .01 and released
+        radii = self.geometry.get("pin_radii_m")
+        tolerance = min(.0015, rail["hole_diameter_m"]/2-max(radii)-.0001) if radii else .0015
+        seated = radial <= tolerance and angle <= np.deg2rad(1 if radii else 3) and gap <= .001 and insertion >= .005 and speed <= .01 and released
         self.fixture_since = (stamp if self.fixture_since is None else self.fixture_since) if seated else None
         if self.fixture_since is not None and stamp-self.fixture_since >= 1:
             self.fixture_completed = True
