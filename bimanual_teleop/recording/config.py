@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import math
+import re
 
 from bimanual_teleop.common.config import load_yaml_config
 
@@ -10,6 +11,15 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "recording.ya
 
 
 _CONTROL_KEYS = ("save_key", "discard_key", "quit_key", "recover_key", "mark_key")
+_TASK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+
+def validate_task(task):
+    """A task name is one directory below output_dir, never a path."""
+    if not isinstance(task, str) or not _TASK_NAME.fullmatch(task):
+        raise ValueError("recording.task must be 1-64 letters, digits, '_' or '-', "
+                         f"starting with a letter or digit: {task!r}")
+    return task
 
 
 def _control_key(value, name):
@@ -35,6 +45,7 @@ class RecordingConfig:
     main_depth: bool = True
     state_hz: float = 200.
     output_dir: str = "recordings"
+    task: str | None = None
     start_delay_s: float = 0.
     frame_capacity: int = 256
     save_key: str = "s"
@@ -53,6 +64,8 @@ class RecordingConfig:
             raise ValueError("recording.state_hz must be in (0, 1000]")
         if not isinstance(self.output_dir, str) or not self.output_dir.strip():
             raise ValueError("recording.output_dir must be a nonempty path")
+        if self.task is not None:
+            validate_task(self.task)
         if (isinstance(self.start_delay_s, bool) or not isinstance(self.start_delay_s, (int, float))
                 or not math.isfinite(self.start_delay_s) or not 0 <= self.start_delay_s <= 60):
             raise ValueError("recording.start_delay_s must be in [0, 60]")
@@ -72,7 +85,7 @@ def load_config(path=DEFAULT_CONFIG):
     if not isinstance(controls, dict):
         raise ValueError("recording.controls must be a mapping")
     unknown = set(values) - {
-        "cameras", "main_depth", "state_hz", "output_dir", "start_delay_s", "frame_capacity",
+        "cameras", "main_depth", "state_hz", "output_dir", "task", "start_delay_s", "frame_capacity",
     }
     if unknown:
         raise ValueError(f"Unknown recording settings: {sorted(unknown)}")

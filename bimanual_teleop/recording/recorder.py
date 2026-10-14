@@ -11,7 +11,7 @@ import threading
 import time
 from uuid import uuid4
 
-from .episodes import CAPTURED, COMPLETE, DISCARDED, FAILED
+from .episodes import CAPTURED, COMPLETE, DISCARDED, FAILED, EpisodeNumbers
 from .schema import DEPTH_STREAM, RGB_STREAMS
 from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
 
@@ -252,12 +252,14 @@ class Recorder:
 
     def __init__(self, config, *, sdk_root=None, metadata=None, viewer=False):
         self.config, self.sdk_root = config, sdk_root
-        self.metadata, self.viewer = metadata or {}, viewer
+        self.session = datetime.now().strftime("%Y%m%d_%H%M%S_") + uuid4().hex[:8]
+        self.metadata, self.viewer = {**(metadata or {}), "session": self.session}, viewer
         self.context = mp.get_context("spawn")
         self.channel = CaptureChannel(self.context)
         self.sink = RecorderSink(self.channel, config.state_hz)
-        self.session = Path(config.output_dir).resolve() / (
-            datetime.now().strftime("%Y%m%d_%H%M%S_") + uuid4().hex[:8])
+        self.directory = (Path(config.output_dir).resolve() / config.task
+                          if config.task is not None else None)
+        self.numbers = None
         self.process = self.connection = None
         self.ready = False
         self.state = "idle"
@@ -278,7 +280,7 @@ class Recorder:
         process = self.process
         return {
             "state": self.state, "ready": self.ready, "error": self.error,
-            "session": str(self.session), "viewer": self.viewer,
+            "session": self.session, "directory": str(self.directory), "viewer": self.viewer,
             "process_pid": process.pid if process is not None else None,
             "process_alive": process.is_alive() if process is not None else False,
             "channel_active": bool(self.channel.active.value),
@@ -312,6 +314,9 @@ class Recorder:
     def start(self):
         """Camera preflight before teleoperation is engaged."""
         from .spool import preflight_nvenc
+        if self.directory is None:
+            raise ValueError("采集需要任务名：启动时加 --task NAME，或在采集配置中设置 task")
+        self.numbers = EpisodeNumbers(self.directory)
         preflight_nvenc()
         self._nvenc_checked = True
         self._launch()
@@ -337,7 +342,7 @@ class Recorder:
                 raise ValueError(f"等待新鲜的采集数据：{stream}")
         self.channel.generation.value += 1
         generation = self.channel.generation.value
-        path = self.session / f"episode_{generation - 1:06d}"
+        path = self.numbers.allocate()
         self.connection.send(("start", generation, str(path), now))
         self.state = "starting"
 
@@ -501,5 +506,8 @@ class Recorder:
             self.poll()
             time.sleep(.01)
         self._stop_process()
+        if self.numbers is not None:
+            self.numbers.close()
+            self.numbers = None
         self.channel.errors.close()
         self.channel.errors.cancel_join_thread()

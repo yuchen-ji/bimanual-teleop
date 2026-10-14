@@ -1,10 +1,15 @@
 """Episode directories, manifest statuses and recursive discovery."""
 
+import fcntl
 import json
 import os
 from pathlib import Path
+import re
 
 MANIFEST = "episode.json"
+EPISODE_COUNTER = ".next_episode"
+TASK_LOCK = ".recording.lock"
+_EPISODE_NAME = re.compile(r"\.?episode_(\d+)(?:\.|$)")
 
 # Manifest lifecycle: capturing -> captured -> finalizing -> complete. The
 # offline EpisodeWriter starts at recording. Failed and discarded are final.
@@ -65,3 +70,43 @@ def episode_label(episode, root):
     """Name relative to the searched root; an episode given directly keeps its own name."""
     episode, root = Path(episode), Path(root).resolve()
     return episode.name if episode == root else episode.relative_to(root).as_posix()
+
+
+class EpisodeNumbers:
+    """Episode paths in one task directory, numbered continuously across runs.
+
+    The lock is held until ``close`` so only one recorder writes a task at a
+    time. The persisted counter keeps numbers from being reused after finalize
+    deletes discarded episodes or an episode is removed by hand.
+    """
+
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self._lock = open(self.directory / TASK_LOCK, "a")
+        try:
+            fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self._lock.close()
+            raise RuntimeError(f"另一个采集进程正在写入同一任务目录：{self.directory}") from None
+        try:
+            counter = self.directory / EPISODE_COUNTER
+            stored = int(counter.read_text(encoding="utf-8")) if counter.exists() else 0
+            used = [int(match.group(1)) + 1 for name in os.listdir(self.directory)
+                    if (match := _EPISODE_NAME.match(name))]
+            self.next = max([stored, *used])
+        except (OSError, ValueError):
+            self.close()
+            raise
+
+    def allocate(self):
+        index = self.next
+        counter = self.directory / EPISODE_COUNTER
+        temporary = counter.with_name(counter.name + ".tmp")
+        temporary.write_text(f"{index + 1}\n", encoding="utf-8")
+        temporary.replace(counter)
+        self.next = index + 1
+        return self.directory / f"episode_{index:06d}"
+
+    def close(self):
+        self._lock.close()

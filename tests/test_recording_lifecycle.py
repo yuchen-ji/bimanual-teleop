@@ -16,6 +16,7 @@ import numpy as np
 import zarr
 
 from bimanual_teleop.recording.config import RecordingConfig, load_config
+from bimanual_teleop.recording.episodes import EpisodeNumbers
 from bimanual_teleop.recording.plan import read_stream
 from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
@@ -315,6 +316,50 @@ class RecordingLifecycleTests(unittest.TestCase):
             path.write_text("cameras: [a, b, c]\nframe_capacity: 8\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "frame_capacity"):
                 load_config(path)
+            path.write_text("cameras: [a, b, c]\ntask: rail_place\n", encoding="utf-8")
+            self.assertEqual(load_config(path).task, "rail_place")
+        self.assertIsNone(config.task)
+        for task in ("", "../x", "a/b", ".hidden", "-x", "x" * 65, 3):
+            with self.subTest(task=task), self.assertRaisesRegex(ValueError, "recording.task"):
+                RecordingConfig(("a", "b", "c"), task=task)
+
+    def test_episode_numbers_continue_across_runs_and_are_never_reused(self):
+        task = self.path.parent / "rail_place"
+        for name in ("episode_000000", "episode_000002", ".episode_000004.finalizing-12"):
+            (task / name).mkdir(parents=True)
+        (task / "notes").mkdir()
+        numbers = EpisodeNumbers(task)
+        self.assertEqual(numbers.allocate(), task / "episode_000005")
+        self.assertEqual(numbers.allocate(), task / "episode_000006")
+        numbers.close()
+        for name in ("episode_000000", "episode_000002", ".episode_000004.finalizing-12"):
+            (task / name).rmdir()
+        numbers = EpisodeNumbers(task)
+        self.addCleanup(numbers.close)
+        self.assertEqual(numbers.allocate(), task / "episode_000007")
+        self.assertEqual((task / ".next_episode").read_text(), "8\n")
+
+    def test_task_directory_admits_one_recorder_at_a_time(self):
+        task = self.path.parent / "rail_place"
+        first = EpisodeNumbers(task)
+        with self.assertRaisesRegex(RuntimeError, "另一个采集进程"):
+            EpisodeNumbers(task)
+        first.close()
+        second = EpisodeNumbers(task)
+        second.close()
+
+    def test_recorder_requires_task_before_camera_preflight(self):
+        recorder = Recorder(self.config)
+        def cleanup_channels():
+            for queue in (recorder.channel.queue, recorder.channel.errors):
+                queue.close()
+                queue.join_thread()
+        self.addCleanup(cleanup_channels)
+        self.assertEqual(recorder.metadata["session"], recorder.session)
+        with patch("bimanual_teleop.recording.spool.preflight_nvenc") as preflight:
+            with self.assertRaisesRegex(ValueError, "--task"):
+                recorder.start()
+        preflight.assert_not_called()
 
     def test_slow_writer_cannot_ack_complete_while_valid_tail_records_are_lost(self):
         channel, connection, _, _, rig, _ = self.worker(delay=.002)
@@ -364,7 +409,8 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.process.is_alive.return_value = True
         recorder.process.exitcode = 0
         recorder.state, recorder.error, recorder.ready = "recording", None, True
-        recorder.notices, recorder.session = [], self.path
+        recorder.notices, recorder.session = [], "test-session"
+        recorder.numbers = Mock(allocate=Mock(return_value=self.path))
         recorder._restart_required = False
         return recorder
 
@@ -450,7 +496,9 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.channel.latest_ns[:] = [time.monotonic_ns()] * 8
         recorder.begin()
         self.assertEqual(recorder.state, "starting")
-        self.assertEqual(self.receive(child)[0], "start")
+        message = self.receive(child)
+        self.assertEqual((message[0], message[2]), ("start", str(self.path)))
+        recorder.numbers.allocate.assert_called_once_with()
         recorder.end()
         self.assertEqual(self.receive(child)[0], "stop")
         child.send(("recording", str(self.path)))

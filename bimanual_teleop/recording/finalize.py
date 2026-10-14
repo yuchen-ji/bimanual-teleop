@@ -172,7 +172,7 @@ def finalize_episode(path, *, sdk_root=None, progress=None):
 
 
 def archived_spool(episode, archive):
-    """Where ``archive_spool`` keeps an episode's spool: ``<archive>/<session>/<episode>``."""
+    """Where ``archive_spool`` keeps an episode's spool: ``<archive>/<task>/<episode>``."""
     episode = Path(episode)
     return Path(archive).expanduser().resolve() / episode.parent.name / episode.name
 

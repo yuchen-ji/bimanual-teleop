@@ -8,7 +8,7 @@
 
 | 步骤 | 命令 | 必须 | 结果 |
 | --- | --- | --- | --- |
-| 采集 | `teleop_quest_tianji.py --record --viewer` | 是 | `recordings/<session>/episode_*/`，状态 `captured` |
+| 采集 | `teleop_quest_tianji.py --record --task <task> --viewer` | 是 | `recordings/<task>/episode_*/`，状态 `captured` |
 | 整理 | `finalize_recording.py` | 是 | 生成 `raw.zarr`，状态 `complete`；删除作废条目 |
 | 试运行 | `convert_recording.py --dry-run` | 否 | 打印每条的等级、丢弃和修复，不写文件 |
 | 审片 | `review_recording.py` | 否 | `review.json`：剔除条目、决定暂停接缝是否接上 |
@@ -18,10 +18,10 @@
 最少只需采集、整理、导出三步：
 
 ```bash
-python scripts/teleop_quest_tianji.py --record --viewer           # B 标记、S 保存、X 作废、Q 保存并退出
-python scripts/finalize_recording.py --input recordings/<session>
-python scripts/convert_recording.py --input recordings/<session> \
-  --output datasets/episodes_eef.zarr --action-space eef
+python scripts/teleop_quest_tianji.py --record --task rail_place --viewer   # B 标记、S 保存、X 作废、Q 保存并退出
+python scripts/finalize_recording.py --input recordings/rail_place
+python scripts/convert_recording.py --input recordings/rail_place \
+  --output datasets/rail_place_eef.zarr --action-space eef
 ```
 
 不审片时所有条目按保留处理，暂停一律在接缝处切开。
@@ -39,10 +39,13 @@ python scripts/convert_recording.py --input recordings/<session> \
 
 ```bash
 conda activate bimanual-teleop
-python scripts/teleop_quest_tianji.py --record --viewer
+python scripts/teleop_quest_tianji.py --record --task rail_place --viewer
 ```
 
 程序依次做 NVENC 检查、相机检查、运动确认和初始回位，终端会打印本次运行日志的路径。
+
+- `--task` 是任务名，必须指定（或写在采集配置的 `task` 中），只能用字母、数字、`_`、`-`。同一任务的条目都放在 `recordings/<task>/` 下，编号跨多次启动连续：Ctrl+C 或退出后重新启动，新条目接着上次的编号，不会新建目录。
+- 换任务时换一个任务名。同一任务目录同时只能有一个采集程序，第二个会在启动时报错退出。
 
 ## 3. 采集
 
@@ -67,11 +70,11 @@ python scripts/teleop_quest_tianji.py --record --viewer
 退出遥操作后执行：
 
 ```bash
-python scripts/finalize_recording.py --input recordings/<session>
+python scripts/finalize_recording.py --input recordings/<task>
 ```
 
-- 作废（X）的条目在这一步被**直接删除**，不可恢复；失败的条目保留以便排查。整理成功的条目才能导出。
-- 整理成功后，条目内的原始缓存 `raw_spool/` 移到 `raw_spools/<session>/<episode>`（相对当前目录），原处留符号链接；`--spool-archive DIR` 可改位置，但不能放在 `--input` 之内。
+- 作废（X）的条目在这一步被**直接删除**，不可恢复；失败的条目保留以便排查。整理成功的条目才能导出。删除后编号留空，新条目不会复用。
+- 整理成功后，条目内的原始缓存 `raw_spool/` 移到 `raw_spools/<task>/<episode>`（相对当前目录），原处留符号链接；`--spool-archive DIR` 可改位置，但不能放在 `--input` 之内。
 - 某条失败时继续整理其余条目，最后以非零退出码结束；排除问题后重跑同一命令即可。
 
 ## 5. 可选：试运行与审片
@@ -79,8 +82,8 @@ python scripts/finalize_recording.py --input recordings/<session>
 想先看导出结果、剔除个别条目或把暂停接缝接上时，在导出前执行；不需要时直接做第 6 步。
 
 ```bash
-python scripts/convert_recording.py --input recordings/<session> --action-space eef --dry-run
-python scripts/review_recording.py --input recordings/<session>
+python scripts/convert_recording.py --input recordings/<task> --action-space eef --dry-run
+python scripts/review_recording.py --input recordings/<task>
 ```
 
 - 试运行与正式导出流程相同、打印内容相同（见第 6 步），只是不解码视频、不写任何文件，可省略 `--output`。它会一次列出所有会让正式导出中止的错误，例如元数据不一致、三台相机识别出的暂停不一致，此时退出码为 1；正式导出遇到第一个错误就停止。
@@ -93,8 +96,8 @@ python scripts/review_recording.py --input recordings/<session>
 
 ```bash
 python scripts/convert_recording.py \
-  --input recordings/<session> \
-  --output datasets/episodes_eef.zarr \
+  --input recordings/<task> \
+  --output datasets/<task>_eef.zarr \
   --action-space eef
 ```
 
@@ -106,7 +109,7 @@ python scripts/convert_recording.py \
 
   最后汇总全部条目的等级、丢弃和修复；`--verbose` 另列每路统计。
 - 输出路径必须不存在；关节动作空间改用 `--action-space joint`；需要深度时加 `--include-depth`。
-- `--input recordings` 一次导出其下所有会话。合并的会话之间，相机序列号与内参、运动学模型、天机和 Wuji 控制参数必须一致，否则报错并列出不同的字段；确认可以混用时加 `--allow-mixed-metadata`。
+- `--input recordings` 一次导出其下所有任务。合并的条目之间，相机序列号与内参、运动学模型、天机和 Wuji 控制参数必须一致，否则报错并列出不同的字段；确认可以混用时加 `--allow-mixed-metadata`。
 - 训练前建议在转换配置中把 `min_segment_frames` 设为不小于训练窗口长度（DP 配置的 `horizon`，默认 16）。
 
 ## 7. 训练接入

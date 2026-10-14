@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 import subprocess
 
@@ -72,6 +73,9 @@ def main(argv=None):
                         help="启用原始采集；接合后自动开始，B 边界标记、S 保存、X 作废、Q 保存并退出")
     parser.add_argument("--recording-config", type=Path,
                         help="采集配置 YAML；默认 configs/recording.yaml")
+    parser.add_argument("--task",
+                        help="采集任务名，条目写入 <output_dir>/<task>/episode_NNNNNN，编号跨运行连续；"
+                             "覆盖采集配置中的 task")
     parser.add_argument("--log-file", type=Path,
                         help="详细运行日志路径；默认写入 logs/teleop_quest_tianji_<时间>_<进程>.jsonl")
     parser.add_argument("-v", "--verbose", action="store_true",
@@ -81,6 +85,8 @@ def main(argv=None):
         parser.error("联合控制需要 --side both；单臂控制请加 --arms-only")
     if args.record and (args.arms_only or args.side != "both"):
         parser.error("数据采集需要双臂双手联合遥操作")
+    if args.task is not None and not args.record:
+        parser.error("--task 只用于 --record")
     combined = not args.arms_only
     runtime = ui = None
     preview = None
@@ -116,6 +122,8 @@ def main(argv=None):
             from bimanual_teleop.recording.config import validate_mark_key
             from bimanual_teleop.recording.recorder import Recorder
             recording_config = load_recording_config(args.recording_config or RECORDING_CONFIG)
+            if args.task is not None:
+                recording_config = replace(recording_config, task=args.task)
             validate_mark_key(recording_config.mark_key,
                               toggle_engagement_key=settings["controls"]["toggle_engagement_key"],
                               ready_pose_key=settings["controls"]["ready_pose_key"])

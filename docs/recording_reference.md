@@ -5,7 +5,7 @@
 ## 流程
 
 ```text
-teleop_quest_tianji.py --record  ->  recordings/<session>/episode_*/  MP4 + raw_spool   状态 captured
+teleop_quest_tianji.py --record  ->  recordings/<task>/episode_*/     MP4 + raw_spool   状态 captured
 finalize_recording.py            ->  同一目录生成 raw.zarr                             状态 complete
 convert_recording.py --dry-run   ->  （可选）逐条等级、丢弃与修复，不写任何文件          OK / WARN / FAIL / SKIP
 review_recording.py              ->  （可选）同一目录生成 preview.mp4 和 review.json    keep / reject
@@ -26,6 +26,7 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 | `main_depth` | 是否采集 `camera_0` 深度，默认 `true` |
 | `state_hz` | 实测状态的记录频率上限，默认 200；不影响控制和保护 |
 | `output_dir` | 输出根目录，默认 `recordings`，相对启动目录 |
+| `task` | 任务名，条目写入 `<output_dir>/<task>/`；默认留空，启动时须用 `--task NAME` 指定，命令行优先。1～64 个字母、数字、`_` 或 `-`，以字母或数字开头 |
 | `start_delay_s` | 接合后多久开始或继续录制，0～60 s，默认 0 |
 | `frame_capacity` | 每路图像帧池长度，16～2048，默认 256（约 825 MiB、8.5 s）；按主机内存设置 |
 | `controls` | 边界标记（`mark_key`，默认 B）、保存（S）、作废（X）、保存并退出（Q）、恢复采集进程（C）的按键；标记键不得与其他采集键或遥操作键冲突 |
@@ -93,19 +94,25 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 ### 目录
 
 ```text
-recordings/<YYYYmmdd_HHMMSS_8位随机>/episode_000000/
-  episode.json                  # 状态、[start_ns, end_ns)、各流计数、元数据、边界标记
-  camera_0.mp4 … camera_2.mp4   # NVENC H.264，每个真实帧编码一次
-  raw_spool/
-    streams/<流名>.bin           # 流名中的 / 换成 __，如 arms__left.bin；int64 time_ns、int64 sequence、float64 数值，小端
-    cameras/camera_<i>_rgb.bin   # 每帧：int64 time_ns、int64 sequence、float64 source_time_ms
-    cameras/camera_0_depth.raw   # 启用深度时：逐帧 uint16 480×640
-    cameras/camera_0_depth.bin   # 深度帧时间表，格式同 RGB
-  raw.zarr/                     # 离线整理生成
-  review.json、preview.mp4      # 审片生成，可选
+recordings/<task>/
+  .next_episode                 # 下一个条目编号
+  .recording.lock               # 采集进程持有的文件锁
+  episode_000000/
+    episode.json                  # 状态、[start_ns, end_ns)、各流计数、元数据、边界标记
+    camera_0.mp4 … camera_2.mp4   # NVENC H.264，每个真实帧编码一次
+    raw_spool/
+      streams/<流名>.bin           # 流名中的 / 换成 __，如 arms__left.bin；int64 time_ns、int64 sequence、float64 数值，小端
+      cameras/camera_<i>_rgb.bin   # 每帧：int64 time_ns、int64 sequence、float64 source_time_ms
+      cameras/camera_0_depth.raw   # 启用深度时：逐帧 uint16 480×640
+      cameras/camera_0_depth.bin   # 深度帧时间表，格式同 RGB
+    raw.zarr/                     # 离线整理生成
+    review.json、preview.mp4      # 审片生成，可选
+  episode_000001/ …
 ```
 
-MP4 的播放时间不作同步依据，每帧真实时间在 `camera_<i>_rgb.bin` 中，整理后写入 `raw.zarr`。条目编号在一次运行内递增，C 恢复后也不重复。
+MP4 的播放时间不作同步依据，每帧真实时间在 `camera_<i>_rgb.bin` 中，整理后写入 `raw.zarr`。
+
+同一任务的条目平铺在任务目录下，编号跨多次运行连续递增：启动采集时取 `.next_episode` 与已有条目（含中断留下的 `.episode_*.finalizing-*`）最大编号加 1 中的较大者，每开始一条就写回计数。因此整理删除作废条目、手动删除条目或 C 恢复后，编号都不会被重复使用，作废和失败条目会在编号中留下空缺。启动时对任务目录加排他文件锁，同一任务目录同时只允许一个采集进程；进程退出或崩溃时锁自动释放。Ctrl+C 中断后重新启动，新条目接在同一任务目录下继续编号。
 
 ### 时间语义
 
@@ -124,20 +131,20 @@ MP4 的播放时间不作同步依据，每帧真实时间在 `camera_<i>_rgb.bi
 
 ### 元数据
 
-`episode.json` 的 `metadata` 保存天机与 Wuji 配置、采集配置、相机内参（深度另含到 RGB 的外参和 `depth_scale`）、运动学模型摘要和各字段说明。
+`episode.json` 的 `metadata` 保存天机与 Wuji 配置、采集配置（含 `recording.task`）、相机内参（深度另含到 RGB 的外参和 `depth_scale`）、运动学模型摘要和各字段说明。`metadata.session` 是本次运行的标识（`YYYYmmdd_HHMMSS_8位随机`），同一次启动采集的条目相同，可据此找回运行分组；不参与转换时的元数据一致性检查。
 每台相机的 `image_rotation_deg` 记录 RGB 图像相对传感器原图的旋转角度，当前配置的 `camera_1`（左臂）为 180，其余为 0；旧录制以其自身元数据为准。`rgb_intrinsics` 保留传感器原始标定；投影到旋转后的左臂图像时，像素坐标按 `u' = width - 1 - u`、`v' = height - 1 - v` 转换。旧数据缺少旋转字段时按 0 处理，不会自动旋转；转换时将图像旋转角度纳入元数据一致性检查。
 
 ## 离线整理
 
 ```bash
-python scripts/finalize_recording.py --input recordings/<session> [--spool-archive DIR] [--refinalize] [--sdk-root PATH]
+python scripts/finalize_recording.py --input recordings/<task> [--spool-archive DIR] [--refinalize] [--sdk-root PATH]
 ```
 
 - 递归处理 `--input` 下的全部条目，跳过以 `.` 开头的临时目录。`discarded` 条目被删除，`failed` 和 `capturing` 条目跳过并保留。某条失败时继续处理其余条目，最后以非零退出码结束。
 - 对 `captured` 条目核对：低维和相机序号严格递增、MP4 解码帧数与时间表一致、深度文件完整、各流计数与 `episode.json` 一致、运动学模型摘要与采集时相同。
 - 由实测关节计算双臂法兰正运动学得到 `eef_pose`，全部数据无损压缩写入 `raw.zarr`。
 - 结果先写临时目录再原子替换。失败时条目保持 `captured` 并记录 `finalize_error`，修复后重跑即可。
-- 成功后 `raw_spool/` 移到 `<spool-archive>/<session>/<episode>`（默认 `./raw_spools`，不得位于 `--input` 内），原处留符号链接。跨文件系统时先完整复制再删除，中断后重跑可继续。转换只读 `raw.zarr` 和 MP4。
+- 成功后 `raw_spool/` 移到 `<spool-archive>/<task>/<episode>`（默认 `./raw_spools`，不得位于 `--input` 内），原处留符号链接。跨文件系统时先完整复制再删除，中断后重跑可继续。转换只读 `raw.zarr` 和 MP4。
 - `--refinalize` 把 `complete` 条目改回 `captured` 并从 `raw_spool` 重建 `raw.zarr`；符号链接失效时到 `--spool-archive` 中查找，仍找不到则保持 `complete` 并报错。
 
 ### raw.zarr
@@ -185,7 +192,7 @@ python scripts/convert_recording.py --input PATH --output datasets/<name>.zarr \
   [--dry-run] [--allow-mixed-metadata] [--verbose] [--report PATH]
 ```
 
-- 只转换 `complete` 条目，其他状态和 `review.json` 中 `reject` 的条目跳过并写入报告。`--input` 可以是单条、一个会话或多个会话的上级目录；以 `.` 开头的临时目录不扫描。
+- 只转换 `complete` 条目，其他状态和 `review.json` 中 `reject` 的条目跳过并写入报告。`--input` 可以是单条、一个任务目录或多个任务的上级目录；以 `.` 开头的临时目录不扫描。
 - 输出路径必须不存在。结果先写临时目录，成功后原子发布；任一条目出错则整次失败，不留半成品。
 - `--dry-run` 走同一套规划和质量检查，只是不解码视频、不写数据集，可省略 `--output`；打印的数字与正式转换完全一致。正式转换遇到第一个错误即中止，试运行则把每条的错误记入报告后继续，一次列出全部问题，有错误时退出码为 1。`--verbose` 打印每路统计，`--report PATH` 另存完整质量报告 JSON。
 - 默认不读深度；加 `--include-depth` 才检查深度匹配，且要求所有条目一致地有或没有深度。
