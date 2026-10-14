@@ -18,7 +18,8 @@ controls:
 # Quest 手柄的位置和朝向采用哪种参考系。
 quest:
   # "headset"：原点跟随头显，水平朝向跟随头显 yaw；"world"：固定的 Quest LOCAL 世界坐标系。
-  coordinate_frame: "world"
+  # coordinate_frame: "world"
+  coordinate_frame: "headset"
 
 # 机械臂运动配置；下面的数值是当前本机参数。
 profile:

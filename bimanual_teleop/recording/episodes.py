@@ -21,6 +21,27 @@ def read_manifest(episode):
     return json.loads((Path(episode) / MANIFEST).read_text(encoding="utf-8"))
 
 
+def read_phase_markers(document):
+    """Read optional, ordered markers on the episode's recording timeline."""
+    markers = document.get("phase_markers", [])
+    if not isinstance(markers, list):
+        raise ValueError("phase_markers must be a list")
+    result = []
+    previous = document.get("start_ns")
+    end = document.get("end_ns")
+    for index, marker in enumerate(markers, 1):
+        if (not isinstance(marker, dict) or type(marker.get("index")) is not int
+                or marker["index"] != index or type(marker.get("time_ns")) is not int):
+            raise ValueError("phase_markers must contain consecutive integer index and integer time_ns")
+        stamp = marker["time_ns"]
+        if (type(previous) is not int or stamp < previous or not 0 <= stamp < 2**63
+                or (end is not None and (type(end) is not int or stamp >= end))):
+            raise ValueError("phase_markers times must be ordered and inside [start_ns, end_ns)")
+        result.append({"index": index, "time_ns": stamp})
+        previous = stamp
+    return result
+
+
 def find_episodes(path):
     """Episode directories at any depth below ``path``, including ``path`` itself.
 

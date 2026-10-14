@@ -7,11 +7,31 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 from bimanual_teleop.recording.preview import (
-    _Images, _PREVIEW_PERIOD_S, RecordingPreview, _lower_priority,
+    _GAP_PX, _Images, _PREVIEW_PERIOD_S, RecordingPreview, _fit_screen, _lower_priority,
+    _window_size,
 )
 
 
 class RecordingPreviewTests(unittest.TestCase):
+    def test_window_fills_one_monitor_width_and_leaves_room_below(self):
+        width, height, panel = _window_size(1920, 1080)
+        self.assertEqual(width, 1920)
+        self.assertAlmostEqual(panel * 3 + 2 * _GAP_PX, width)
+        self.assertAlmostEqual(height, panel * 3 / 4)
+        self.assertLess(height, 1080 * .5)
+        self.assertEqual(_window_size(3840, 1080)[0], 1920)
+        self.assertLessEqual(_window_size(1080, 1920)[1], 1920 * .55)
+        self.assertLessEqual(_window_size(2400, 600)[1], 600 * .55 + 1e-9)
+
+    def test_layout_has_no_outer_margins(self):
+        from matplotlib.figure import Figure
+        figure = Figure()
+        figure.subplots(1, 3)
+        _fit_screen(figure)
+        np.testing.assert_allclose(figure.get_size_inches() * figure.dpi, _window_size(1920, 1080)[:2])
+        params = figure.subplotpars
+        self.assertEqual((params.left, params.right, params.bottom, params.top), (0, 1, 0, 1))
+
     def test_mailbox_retains_only_latest_owned_images(self):
         images = _Images(mp.get_context("spawn"))
         frame = np.full((480, 640, 3), 7, dtype="u1")

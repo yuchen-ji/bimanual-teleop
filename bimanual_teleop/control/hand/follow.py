@@ -15,7 +15,7 @@ import time
 import uuid
 
 from bimanual_teleop.devices.wuji.adapter import (
-    JOINT_LIMITS_RAD, JOINT_NAMES, WujiGloveSource, WujiHandDriver, WujiSdkSession,
+    JOINT_LIMITS_RAD, JOINT_NAMES, SDK_VERSION, WujiGloveSource, WujiHandDriver, WujiSdkSession,
 )
 from bimanual_teleop.devices.wuji.config import sdk_user_name, validate_control_config
 from bimanual_teleop.system import SystemState
@@ -24,8 +24,8 @@ from bimanual_teleop.types import ControlProfile, DeviceCommand, Event, Health, 
 
 def preflight():
     """Check installation before motion; the hand process loads native modules."""
-    if version("wuji-sdk") != "2026.8.31":
-        raise RuntimeError("Install wuji-sdk==2026.8.31 in bimanual-teleop")
+    if version("wuji-sdk") != SDK_VERSION:
+        raise RuntimeError(f"Install wuji-sdk=={SDK_VERSION} in bimanual-teleop")
     for package in ("numpy", "wuji_sdk"):
         if find_spec(package) is None:
             raise ImportError(f"No module named {package!r}")

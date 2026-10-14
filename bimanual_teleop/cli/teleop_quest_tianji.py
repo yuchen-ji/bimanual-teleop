@@ -69,7 +69,7 @@ def main(argv=None):
     parser.add_argument("--arms-only", action="store_true", help="只控制机械臂，不连接 Wuji 手套和灵巧手")
     parser.add_argument("--viewer", action="store_true", help="显示已连接 RealSense 的彩色图像；默认关闭")
     parser.add_argument("--record", action="store_true",
-                        help="启用原始采集；接合后自动开始，S 保存、X 作废、Q 保存并退出")
+                        help="启用原始采集；接合后自动开始，B 边界标记、S 保存、X 作废、Q 保存并退出")
     parser.add_argument("--recording-config", type=Path,
                         help="采集配置 YAML；默认 configs/recording.yaml")
     parser.add_argument("--log-file", type=Path,
@@ -113,8 +113,13 @@ def main(argv=None):
         if args.record:
             phase = "启动采集进程"
             from bimanual_teleop.recording.config import load_config as load_recording_config, DEFAULT_CONFIG as RECORDING_CONFIG
+            from bimanual_teleop.recording.config import validate_mark_key
             from bimanual_teleop.recording.recorder import Recorder
-            recorder = Recorder(load_recording_config(args.recording_config or RECORDING_CONFIG),
+            recording_config = load_recording_config(args.recording_config or RECORDING_CONFIG)
+            validate_mark_key(recording_config.mark_key,
+                              toggle_engagement_key=settings["controls"]["toggle_engagement_key"],
+                              ready_pose_key=settings["controls"]["ready_pose_key"])
+            recorder = Recorder(recording_config,
                 sdk_root=args.sdk_root, viewer=args.viewer,
                 metadata={"tianji_config": settings, "wuji_config": args.wuji_settings})
             recorder.start()

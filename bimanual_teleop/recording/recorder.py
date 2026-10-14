@@ -139,6 +139,15 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     rig.resume_delivery()
                     channel.active.value = True
                     connection.send(("resumed", None))
+                elif operation == "mark_phase":
+                    _, marker_generation, stamp = message
+                    if (writer is None or holding or ending is not None or pause_requested is not None
+                            or channel.failed.is_set() or marker_generation != generation
+                            or stamp < resume_after_ns or stamp - time_offset_ns < writer.document["start_ns"]):
+                        connection.send(("phase_marker_rejected", "当前未在有效录制中，未记录边界标记。"))
+                    else:
+                        marker = writer.add_phase_marker(stamp - time_offset_ns)
+                        connection.send(("phase_marker", {**marker, "start_ns": writer.document["start_ns"]}))
                 elif operation == "stop" and writer is not None:
                     channel.active.value = False
                     _, end_ns, status, reason = message
@@ -383,6 +392,21 @@ class Recorder:
             return
         self.state = "resuming"
 
+    def mark_phase(self):
+        """Send the key event's host time; the worker removes pause intervals."""
+        now = time.monotonic_ns()
+        if (self.state != "recording" or not self.ready or self.error or self.channel.failed.is_set()):
+            self.notices.append("当前未在有效录制中，未记录边界标记。")
+            return False
+        try:
+            self.connection.send(("mark_phase", self.channel.generation.value, now))
+        except (OSError, EOFError):
+            self.error = "录制进程标记通道已断开"
+            self.channel.fail(self.error)
+            self.notices.append("边界标记未写入：录制进程标记通道已断开。")
+            return False
+        return True
+
     def end(self, *, status=COMPLETE, reason=None):
         if not self.episode_open:
             return
@@ -414,6 +438,11 @@ class Recorder:
                         if self.state == "resuming":
                             self.state = "recording"
                         self.notices.append("继续录制本条。")
+                    elif kind == "phase_marker":
+                        seconds = (value["time_ns"] - value["start_ns"]) / 1e9
+                        self.notices.append(f"已记录边界标记 #{value['index']}：本条 {seconds:.3f} 秒。")
+                    elif kind == "phase_marker_rejected":
+                        self.notices.append(value)
                     elif kind == "saved":
                         self.state = "idle"
                         path, status = value

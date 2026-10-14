@@ -4,6 +4,7 @@ import time
 
 from bimanual_teleop.cli.runtime import TeleopUI
 
+from .config import validate_mark_key
 from .episodes import COMPLETE, DISCARDED, FAILED
 
 
@@ -12,6 +13,7 @@ def recording_help(config):
     when = "立即" if not delay else f"{delay:g} 秒后"
     return (
         f"接合后{when}开始录制；脱离只暂停本条，再次接合后继续 · "
+        f"{config.mark_key.upper()} 边界标记 · "
         f"{config.save_key.upper()} 保存 · {config.discard_key.upper()} 作废 · "
         f"{config.quit_key.upper()} 保存并退出 · "
         f"采集失败时先脱离，再按 {config.recover_key.upper()} 恢复进程"
@@ -22,7 +24,7 @@ def _setting(recorder, name, default):
     config = getattr(recorder, "config", None)
     value = getattr(config, name, default) if config is not None else default
     if isinstance(default, str):
-        return value if isinstance(value, str) and len(value) == 1 else default
+        return value.lower() if isinstance(value, str) and len(value) == 1 else default
     if isinstance(default, float) and isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     return default
@@ -37,12 +39,20 @@ class RecordingUI(TeleopUI):
         self.discard_key = _setting(recorder, "discard_key", "x")
         self.quit_key = _setting(recorder, "quit_key", "q")
         self.recover_key = _setting(recorder, "recover_key", "c")
+        self.mark_key = _setting(recorder, "mark_key", "b")
+        validate_mark_key(self.mark_key, toggle_engagement_key=self.toggle_engagement_key,
+                          ready_pose_key=self.ready_pose_key, home_enabled=self.home_enabled)
         self.start_delay_s = _setting(recorder, "start_delay_s", 0.0)
         self._engaged_since = None
         self._was_engaged = False
 
     def handle(self, key):
+        if self.quit:
+            return
         key = key.lower()
+        if key == self.mark_key:
+            self.recorder.mark_phase()
+            return
         if key == self.recover_key:
             if self.recorder.error:
                 if getattr(self.runtime.state, "value", self.runtime.state) == "engaged":

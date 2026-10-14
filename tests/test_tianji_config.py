@@ -21,7 +21,7 @@ class TianjiConfigTests(unittest.TestCase):
         self.assertEqual(settings["profile"]["mode"], "cartesian_impedance")
         source["profile"].update(profile_id="tianji-teleop", mode="cartesian_impedance")
         self.assertEqual(source, settings)
-        self.assertEqual(settings["quest"]["coordinate_frame"], "world")
+        self.assertEqual(settings["quest"]["coordinate_frame"], "headset")
         self.assertEqual(settings["profile"]["parameters"]["active_arms"], ["left", "right"])
         self.assertEqual(settings["ready_pose"]["velocity_ratio"], 25)
         with tempfile.TemporaryDirectory() as directory:

@@ -10,6 +10,33 @@ from .schema import CAMERAS, RGB_SHAPE
 
 
 _PREVIEW_PERIOD_S = .2
+_GAP_PX = 4
+# The rest of the screen height stays free for the operator's terminal.
+_MAX_HEIGHT_FRACTION = .55
+
+
+def _window_size(screen_width, screen_height):
+    """Side-by-side panels at the camera aspect ratio, as wide as one monitor."""
+    count = len(CAMERAS)
+    image_height, image_width = RGB_SHAPE[:2]
+    gaps = _GAP_PX * (count - 1)
+    # X reports one screen spanning all monitors; stay within a 16:9 monitor.
+    width = min(screen_width, screen_height * 16 / 9,
+                screen_height * _MAX_HEIGHT_FRACTION * image_width / image_height * count + gaps)
+    panel_width = (width - gaps) / count
+    return width, panel_width * image_height / image_width, panel_width
+
+
+def _fit_screen(figure):
+    window = getattr(figure.canvas.manager, "window", None)
+    tk = hasattr(window, "winfo_screenwidth")
+    screen = (window.winfo_screenwidth(), window.winfo_screenheight()) if tk else (1920, 1080)
+    width, height, panel_width = _window_size(*screen)
+    figure.set_size_inches(width / figure.dpi, height / figure.dpi)
+    figure.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=_GAP_PX / panel_width)
+    if tk:
+        # Pinned to the top so the free space below stays contiguous.
+        window.geometry("+0+0")
 
 
 def _lower_priority(increment=10):
@@ -63,12 +90,17 @@ def _run(images, stopped):
         import numpy as np
         if plt.get_backend().lower() == "agg":
             raise RuntimeError("录制预览需要桌面图形环境")
-        figure, axes = plt.subplots(1, len(CAMERAS), figsize=(15, 4))
+        plt.rcParams["toolbar"] = "None"
+        figure, axes = plt.subplots(1, len(CAMERAS))
+        figure.canvas.manager.set_window_title("录制预览")
+        _fit_screen(figure)
         artists = []
         for camera, axis in zip(CAMERAS, axes):
-            axis.set_title(camera)
             axis.set_axis_off()
             artists.append(axis.imshow(np.zeros(RGB_SHAPE, dtype="u1")))
+            axis.text(.01, .98, camera, transform=axis.transAxes, ha="left", va="top",
+                      color="white", fontsize=9,
+                      bbox={"facecolor": "black", "alpha": .5, "edgecolor": "none", "pad": 2})
         plt.show(block=False)
         parent = mp.parent_process()
         while not stopped.is_set() and plt.fignum_exists(figure.number):

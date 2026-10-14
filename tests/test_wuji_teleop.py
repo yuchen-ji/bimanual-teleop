@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from bimanual_teleop.devices.wuji.adapter import JOINT_LIMITS_RAD, JOINT_NAMES
+from bimanual_teleop.devices.wuji.adapter import JOINT_LIMITS_RAD, JOINT_NAMES, SDK_VERSION
 from bimanual_teleop.system import SystemState
 from bimanual_teleop.control.hand.follow import WujiHandRetargeter, WujiTeleop, create_wuji_teleop, preflight
 from bimanual_teleop.types import ControlProfile, HandSkeleton, Health, Sample, SampleHeader, SampleRef
@@ -21,14 +21,14 @@ from tests.support.clock import Clock
 
 class PreflightTests(unittest.TestCase):
     def test_checks_installation_without_importing_native_modules(self):
-        with patch("bimanual_teleop.control.hand.follow.version", return_value="2026.8.31"), \
+        with patch("bimanual_teleop.control.hand.follow.version", return_value=SDK_VERSION), \
                 patch("bimanual_teleop.control.hand.follow.find_spec", return_value=object()) as spec, \
                 patch("builtins.__import__", side_effect=AssertionError("preflight imported a module")):
             preflight()
         self.assertEqual([call.args[0] for call in spec.call_args_list], ["numpy", "wuji_sdk"])
 
     def test_missing_package_fails_before_runtime_construction(self):
-        with patch("bimanual_teleop.control.hand.follow.version", return_value="2026.8.31"), \
+        with patch("bimanual_teleop.control.hand.follow.version", return_value=SDK_VERSION), \
                 patch("bimanual_teleop.control.hand.follow.find_spec", return_value=None):
             with self.assertRaisesRegex(ImportError, "numpy"):
                 preflight()

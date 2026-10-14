@@ -8,6 +8,9 @@ import sys
 import time
 
 from bimanual_teleop.visualization.style import styled
+from bimanual_teleop.recording.camera import orient_rgb
+from bimanual_teleop.recording.config import load_config as load_recording_config
+from bimanual_teleop.recording.schema import CAMERAS
 
 from bimanual_teleop.common.console import print_message
 
@@ -49,11 +52,13 @@ class _Camera:
     last_frame: float
     failed: bool = False
     stale: bool = False
+    name: str | None = None
 
 
 def open_cameras(rs):
     """A failed camera does not suppress other connected color cameras."""
     cameras = []
+    names = dict(zip(load_recording_config().cameras, CAMERAS))
     context = rs.context()
     devices = sorted(context.query_devices(), key=lambda d: d.get_info(rs.camera_info.serial_number))
     for device in devices:
@@ -72,7 +77,7 @@ def open_cameras(rs):
                 pass
             print_message(f"RealSense {serial} 无法预览：{error}", "warning")
             continue
-        cameras.append(_Camera(pipeline, label, time.monotonic()))
+        cameras.append(_Camera(pipeline, label, time.monotonic(), name=names.get(serial)))
     return cameras
 
 
@@ -86,7 +91,7 @@ def update_camera(camera, artist, axes, now):
         frames = camera.pipeline.poll_for_frames()
         color = frames.get_color_frame() if frames else None
         if color:
-            artist.set_data(np.asanyarray(color.get_data()))
+            artist.set_data(orient_rgb(camera.name, np.asanyarray(color.get_data())))
             artist.set_visible(True)
             axes.set_title(camera.label)
             camera.last_frame, camera.stale = now, False

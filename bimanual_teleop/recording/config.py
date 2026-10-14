@@ -9,13 +9,24 @@ from bimanual_teleop.common.config import load_yaml_config
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "recording.yaml"
 
 
-_CONTROL_KEYS = ("save_key", "discard_key", "quit_key", "recover_key")
+_CONTROL_KEYS = ("save_key", "discard_key", "quit_key", "recover_key", "mark_key")
 
 
 def _control_key(value, name):
     if not isinstance(value, str) or len(value) != 1 or value.lower() in (" ", "\n", "\r"):
         raise ValueError(f"recording.controls.{name} must be one character")
     return value.lower()
+
+
+def validate_mark_key(mark_key, *, toggle_engagement_key=None, ready_pose_key="h", home_enabled=True):
+    """Keep the marker from intercepting an engagement, home or exit key."""
+    reserved = {"q", "\x03", "\x04", " ", "\n", "\r"}
+    if toggle_engagement_key is not None:
+        reserved.add(toggle_engagement_key.lower())
+    if home_enabled:
+        reserved.add(ready_pose_key.lower())
+    if mark_key.lower() in reserved:
+        raise ValueError(f"recording.controls.mark_key conflicts with teleoperation key {mark_key!r}")
 
 
 @dataclass(frozen=True)
@@ -30,6 +41,7 @@ class RecordingConfig:
     discard_key: str = "x"
     quit_key: str = "q"
     recover_key: str = "c"
+    mark_key: str = "b"
 
     def __post_init__(self):
         if len(self.cameras) != 3 or len(set(self.cameras)) != 3 or any(
@@ -47,9 +59,9 @@ class RecordingConfig:
         if (isinstance(self.frame_capacity, bool) or not isinstance(self.frame_capacity, int)
                 or not 16 <= self.frame_capacity <= 2048):
             raise ValueError("recording.frame_capacity must be an integer in [16, 2048]")
-        keys = [self.save_key, self.discard_key, self.quit_key, self.recover_key]
-        if any(not isinstance(key, str) or len(key) != 1 or key in (" ", "\n", "\r") for key in keys):
-            raise ValueError("recording control keys must be one character each")
+        for name in _CONTROL_KEYS:
+            object.__setattr__(self, name, _control_key(getattr(self, name), name))
+        keys = [getattr(self, name) for name in _CONTROL_KEYS]
         if len(set(keys)) != len(keys):
             raise ValueError("recording control keys must be distinct")
 

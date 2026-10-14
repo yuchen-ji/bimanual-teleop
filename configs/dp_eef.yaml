@@ -4,9 +4,9 @@
 # 末端位置单位 m，旋转为 rotvec(rad)；所有双侧字段按左、右顺序排列。
 shape_meta:
   obs:
-    camera_0: {shape: [3, 480, 640], type: rgb}
-    camera_1: {shape: [3, 480, 640], type: rgb}
-    camera_2: {shape: [3, 480, 640], type: rgb}
+    camera_0: {shape: [3, 480, 640], type: rgb} # 主视角
+    camera_1: {shape: [3, 480, 640], type: rgb} # 机器人左臂
+    camera_2: {shape: [3, 480, 640], type: rgb} # 机器人右臂
     robot_eef_pose: {shape: [12], type: low_dim}
     hand_joint: {shape: [40], type: low_dim}
     wrench: {shape: [12], type: low_dim}

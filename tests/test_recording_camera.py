@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 
 from bimanual_teleop.recording.camera import CameraRig, _ClockBridge
-from bimanual_teleop.recording.config import RecordingConfig
+from bimanual_teleop.recording.config import RecordingConfig, load_config
 
 
 class Clock:
@@ -154,6 +154,36 @@ class CameraTests(unittest.TestCase):
                 rig._accept(name, kind, Frame(clock, sequence, age_ns=(4 - sequence) * 1_000_000))
         rig._active.set()
         return rig, rs, clock
+
+    def test_default_rig_binds_left_before_right_and_rotates_only_left_rgb(self):
+        clock = Clock()
+        rs = RealSense(clock)
+        # Device discovery order differs from the main/left/right recording order.
+        rs.devices = {serial: Device(serial) for serial in (
+            "408322070938", "348122072137", "408322072104",
+        )}
+        rig = CameraRig(load_config(), rs=rs, clock_ns=clock.mono, wall_ns=clock.wall,
+                        startup_timeout_s=.1)
+        self.addCleanup(rig.close)
+        rig.start()
+        image = np.arange(18, dtype=np.uint8).reshape(2, 3, 3)
+        expected = (
+            ("camera_0", "348122072137", 0, image),
+            ("camera_1", "408322072104", 180, image[::-1, ::-1]),
+            ("camera_2", "408322070938", 0, image),
+        )
+        for pipeline, (name, serial, rotation, _pixels) in zip(rs.pipelines, expected):
+            self.assertEqual(pipeline.settings.serial, serial)
+            self.assertEqual(rig.metadata[name]["serial"], serial)
+            self.assertEqual(rig.metadata[name]["image_rotation_deg"], rotation)
+            rig._accept(name, "rgb", Frame(clock, 4, data=image))
+        frames = rig.poll()
+        self.assertEqual(len(frames), 3)
+        for (name, kind, pixels, record), (expected_name, _serial, _rotation, expected_pixels) in zip(
+                frames, expected):
+            self.assertEqual((name, kind, record.stream),
+                             (expected_name, "rgb", f"cameras/{expected_name}/rgb"))
+            np.testing.assert_array_equal(pixels, expected_pixels)
 
     def test_only_main_camera_has_depth_and_metadata_is_calibrated(self):
         rig, rs, _clock = self.rig()

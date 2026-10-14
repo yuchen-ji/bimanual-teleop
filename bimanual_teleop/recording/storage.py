@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import time
 
-from .episodes import COMPLETE, FAILED, RECORDING
+from .episodes import COMPLETE, FAILED, RECORDING, read_phase_markers
 from .schema import CAMERA_FPS, IMAGE_HEIGHT, IMAGE_WIDTH
 from .sink import pose_values
 
@@ -14,6 +14,16 @@ def write_json(path, value):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     temporary.replace(path)
+
+
+def append_phase_marker(path, document, time_ns):
+    """Publish a marker before acknowledging it; keep memory unchanged on failure."""
+    marker = {"index": len(document.get("phase_markers", [])) + 1, "time_ns": time_ns}
+    updated = {**document, "phase_markers": [*document.get("phase_markers", []), marker]}
+    read_phase_markers(updated)
+    write_json(Path(path) / "episode.json", updated)
+    document.update(updated)
+    return marker
 
 
 class RGBVideo:
@@ -62,15 +72,18 @@ class RGBVideo:
 
 
 class EpisodeWriter:
-    def __init__(self, path, start_ns, metadata, kinematics):
+    def __init__(self, path, start_ns, metadata, kinematics, *, phase_markers=None):
         import zarr
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=False)
         self.document = dict(schema_version=1, status=RECORDING, start_ns=start_ns,
-                             end_ns=None, metadata=metadata)
+                             end_ns=None, metadata=metadata,
+                             phase_markers=[] if phase_markers is None else phase_markers)
+        self.document["phase_markers"] = read_phase_markers(self.document)
         write_json(self.path / "episode.json", self.document)
         self.root = zarr.open_group(str(self.path / "raw.zarr"), mode="w")
-        self.root.attrs.update(schema_version=1, metadata=metadata)
+        self.root.attrs.update(schema_version=1, metadata=metadata,
+                               phase_markers=self.document["phase_markers"])
         self.kinematics = kinematics
         self.pending = {}
         self.videos = {}
@@ -80,6 +93,11 @@ class EpisodeWriter:
             "append": {"count": 0, "total_ns": 0, "last_ns": 0, "max_ns": 0},
             "flush": {"count": 0, "total_ns": 0, "last_ns": 0, "max_ns": 0},
         }
+
+    def add_phase_marker(self, time_ns):
+        marker = append_phase_marker(self.path, self.document, time_ns)
+        self.root.attrs["phase_markers"] = self.document["phase_markers"]
+        return marker
 
     def _timed(self, name, started):
         elapsed = time.monotonic_ns() - started

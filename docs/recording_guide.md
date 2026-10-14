@@ -18,7 +18,7 @@
 最少只需采集、整理、导出三步：
 
 ```bash
-python scripts/teleop_quest_tianji.py --record --viewer           # S 保存、X 作废、Q 保存并退出
+python scripts/teleop_quest_tianji.py --record --viewer           # B 标记、S 保存、X 作废、Q 保存并退出
 python scripts/finalize_recording.py --input recordings/<session>
 python scripts/convert_recording.py --input recordings/<session> \
   --output datasets/episodes_eef.zarr --action-space eef
@@ -30,8 +30,10 @@ python scripts/convert_recording.py --input recordings/<session> \
 
 - 机械臂、灵巧手和三台 RealSense 周围无人员和障碍物；实体急停已释放且随手可按。
 - `nvidia-smi -L` 能列出显卡。采集只用 NVENC 硬件编码，检查不通过时程序会在机械臂运动前退出。
-- [采集配置](../configs/recording.yaml)中的相机序列号与实物一致，`frame_capacity` 已按主机内存设置。
+- [采集配置](../configs/recording.yaml)中的相机序列号与实物一致，顺序固定为 `camera_0` 主视角、`camera_1` 机器人左臂（`408322072104`）、`camera_2` 机器人右臂（`408322070938`）；`frame_capacity` 已按主机内存设置。
 - `recordings/` 所在磁盘空间充足，主视角原始深度约占 1.1 GB/分钟。
+
+2026-10-14 起左右臂相机编号调整为上述顺序；旧配置采集的数据是 `camera_1` 右臂、`camera_2` 左臂，不会自动改名。混用前须按元数据中的序列号统一对应关系，详见[相机配置与编号](recording_reference.md#配置)。
 
 ## 2. 启动
 
@@ -49,6 +51,7 @@ python scripts/teleop_quest_tianji.py --record --viewer
 | 接合（Enter；开启手势时也可双手比 V） | 等待 `start_delay_s`（默认 0）后开始新的一条；有暂停中的条目则继续该条 |
 | 脱离（Enter、Space、摇滚手势或设备故障） | 暂停当前条；再次接合续录同一条，暂停时间不计入 |
 | H | 暂停当前条并回位；再次接合仍续录同一条 |
+| B | 录制中记录一个动作阶段边界时间点，保持录制连续；支持大小写 |
 | S | 保存当前条，遥操作继续 |
 | X | 作废当前条 |
 | Q | 保存当前条并退出 |
@@ -57,6 +60,7 @@ python scripts/teleop_quest_tianji.py --record --viewer
 - 换任务、回位或场景变化前先按 S，避免前后画面拼进同一条。
 - 保存时若仍在接合状态，不会自动开始新条；脱离后再接合。
 - 接合后提示"等待新鲜的采集数据"时无需操作，数据就绪后自动开始。
+- B 每次记录一个时间点，成功写入后终端显示标记编号和本条录制中的秒数；未开始、暂停、恢复等待、保存中或采集故障时不记录。标记随原始数据和导出数据保留，阶段名称及划分由后续处理决定，不自动切开训练片段。
 
 ## 4. 离线整理
 

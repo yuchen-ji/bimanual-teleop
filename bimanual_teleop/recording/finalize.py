@@ -11,7 +11,7 @@ import shutil
 from bimanual_teleop.common.console import EpisodeProgress
 
 from .episodes import (CAPTURED, COMPLETE, DISCARDED, FAILED, FINALIZING, MANIFEST,
-                       episode_label, find_episodes, read_manifest)
+                       episode_label, find_episodes, read_manifest, read_phase_markers)
 from .schema import CAMERAS, DEPTH_SHAPE, DEPTH_STREAM, MAIN_CAMERA, RGB_STREAMS, STREAM_FIELDS, rgb_stream
 from .sink import Record
 from .spool import CAMERA_META, NUMERIC_STRUCTS, camera_meta_path, depth_image_path, numeric_path
@@ -145,7 +145,8 @@ def finalize_episode(path, *, sdk_root=None, progress=None):
         expected_model = document.get("metadata", {}).get("model_sha256")
         if expected_model and kinematics.model.digest != expected_model:
             raise ValueError("离线整理使用的天机运动学模型与采集时不一致")
-        writer = EpisodeWriter(temporary, document["start_ns"], document["metadata"], kinematics)
+        writer = EpisodeWriter(temporary, document["start_ns"], document["metadata"], kinematics,
+                               phase_markers=read_phase_markers(document))
         _append_spool(writer, episode, document, progress)
         writer.close(document["end_ns"], status=COMPLETE)
         destination = episode / "raw.zarr"

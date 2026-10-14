@@ -33,6 +33,26 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(rs.config.return_value.enable_stream.call_args.args,
                          ("color", 640, 480, "rgb8", 30))
 
+    def test_default_serial_mapping_keeps_left_rgb_rotated_in_standalone_preview(self):
+        rs, _pipelines = sdk(("408322070938", "348122072137", "408322072104"))
+        cameras = preview.open_cameras(rs)
+        image = np.arange(18, dtype=np.uint8).reshape(2, 3, 3)
+        expected = {
+            "348122072137": ("camera_0", image),
+            "408322072104": ("camera_1", image[::-1, ::-1]),
+            "408322070938": ("camera_2", image),
+        }
+        self.assertEqual(len(cameras), 3)
+        for camera in cameras:
+            serial = camera.label.split(" · ")[-1]
+            name, pixels = expected[serial]
+            self.assertEqual(camera.name, name)
+            camera.pipeline.poll_for_frames.return_value = Mock(
+                get_color_frame=lambda: Mock(get_data=lambda: image))
+            artist = Mock()
+            preview.update_camera(camera, artist, Mock(), 1.)
+            np.testing.assert_array_equal(artist.set_data.call_args.args[0], pixels)
+
     def test_no_camera_warns_without_creating_a_window(self):
         rs, _ = sdk(())
         plt = Mock()
