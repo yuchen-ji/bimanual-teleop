@@ -65,12 +65,24 @@ python scripts/convert_recording.py --input recordings/<task> \
 
 整理时会删除作废的条目。导出默认用修复模式，不需要人工：短缺帧沿用前一张图像，无法修复的帧剔除，暂停处自动切开，并逐条打印丢弃和修复了什么。导出前可选 `--dry-run` 试运行（不写文件）和 `review_recording.py` 审片（剔除条目、合并暂停接缝）。全部步骤一览见[数据采集操作的流程总览](docs/recording_guide.md#流程总览)，训练读取见其中的[训练接入](docs/recording_guide.md#7-训练接入)。
 
+也可导出供 LeRobot 训练与可视化使用的 v3.0 数据集：
+
+```bash
+PIP_USER=false python -m pip install -e '.[recording,lerobot-export]'
+python scripts/convert_lerobot.py --input recordings/<session> \
+  --output datasets/<session>_lerobot --action-space joint \
+  --repo-id local/tianji --task "Pick and place the car seat rails"
+```
+
+有 `dataset.json` 的 session 可省略 `--task`。默认保留原始 Zarr 附件，包含未重采样的深度和高频状态；三路 RGB、状态、动作作为固定频率的 LeRobot 样本导出。时间对齐、字段和读取方法见 [LeRobot 导出说明](docs/lerobot_export.md)。
+
 ## 文档
 
 | 文档 | 内容 |
 | --- | --- |
 | [数据采集操作](docs/recording_guide.md) | 流程总览、采集前检查、按键、整理、可选的试运行与审片、导出、训练接入、故障恢复 |
 | [数据采集参考](docs/recording_reference.md) | 采集架构、数据格式、时间语义、审片文件、转换模式、丢弃与修复、质量等级、实机验收 |
+| [LeRobot 导出](docs/lerobot_export.md) | v3.0 导出命令、状态与动作、分片、原始深度附件和官方读取器 |
 | [开发参考](docs/development.md) | 模块、数据约定、控制时序、设备接口、测试与实机验收 |
 | [Quest 客户端](quest_app/README.md) | 连接、追踪、APK 构建 |
 | [官方天机 SDK](bimanual_teleop/vendor/tianji/README.md) | 随包 SDK 来源与更新 |

@@ -15,6 +15,7 @@ visualization = ["matplotlib>=3.10,<4"]
 realsense = ["pyrealsense2==2.58.4.10922", "matplotlib>=3.10,<4"]
 wuji = ["wuji-sdk==2026.10.12"]
 recording = ["av>=14,<17", "zarr>=2.18,<3", "numcodecs>=0.12,<0.16"]
+lerobot-export = ["datasets>=4.0,<4.2", "pyarrow>=16,<22"]
 
 [tool.setuptools.packages.find]
 where = ["."]
