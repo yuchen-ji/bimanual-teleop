@@ -44,7 +44,7 @@ CONSISTENT_METADATA = (
     "tianji_config.profile", "tianji_config.quest",
     "wuji_config.profile_id", "wuji_config.parameters", "wuji_config.control_hz",
 )
-CAMERA_METADATA = ("serial", "model", "resolution", "fps", "rgb_intrinsics")
+CAMERA_METADATA = ("serial", "model", "resolution", "fps", "rgb_intrinsics", "image_rotation_deg")
 DEPTH_METADATA = ("depth_intrinsics", "depth_to_rgb", "depth_scale")
 _MISSING = object()
 
@@ -90,6 +90,9 @@ def _lookup(metadata, path):
     value = metadata
     for key in path.split("."):
         if not isinstance(value, dict) or key not in value:
+            # Older recordings keep the native orientation and omit this field.
+            if path.endswith(".image_rotation_deg"):
+                return 0
             return _MISSING
         value = value[key]
     return value

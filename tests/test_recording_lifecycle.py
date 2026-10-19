@@ -16,6 +16,7 @@ import numpy as np
 import zarr
 
 from bimanual_teleop.recording.config import RecordingConfig, load_config
+from bimanual_teleop.recording.episodes import EpisodeNumbers
 from bimanual_teleop.recording.plan import read_stream
 from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
@@ -199,6 +200,78 @@ class RecordingLifecycleTests(unittest.TestCase):
             self.assertNotEqual(item.time_ns, 8_000)
         self.assertEqual(mapped.time_ns, 2_600)
 
+    def test_markers_remove_pause_time_and_survive_immediate_save(self):
+        channel, connection, _, _, rig, seen = self.worker()
+        self.seed(channel, rig)
+        self.enqueue(channel, self.record(2_000, 1))
+        while seen.get(timeout=2.).time_ns != 2_000:
+            pass
+        connection.send(("mark_phase", 7, 2_400))
+        self.assertEqual(self.receive(connection),
+                         ("phase_marker", {"index": 1, "time_ns": 2_400, "start_ns": 1_000}))
+        self.assertEqual(json.loads((self.path / "episode.json").read_text())["phase_markers"],
+                         [{"index": 1, "time_ns": 2_400}])
+        connection.send(("pause", 2_500))
+        self.assertEqual(self.receive(connection)[0], "paused")
+        connection.send(("mark_phase", 7, 8_000))
+        self.assertEqual(self.receive(connection)[0], "phase_marker_rejected")
+        connection.send(("resume", 9_000))
+        self.assertEqual(self.receive(connection)[0], "resumed")
+        connection.send(("mark_phase", 7, 9_100))
+        connection.send(("stop", 9_200, "complete", None))
+        rig.frame_set(9_300)
+        self.assertEqual(self.receive(connection),
+                         ("phase_marker", {"index": 2, "time_ns": 2_600, "start_ns": 1_000}))
+        self.assertEqual(self.receive(connection)[0], "saved")
+        document = json.loads((self.path / "episode.json").read_text())
+        markers = [{"index": 1, "time_ns": 2_400}, {"index": 2, "time_ns": 2_600}]
+        self.assertEqual(document["phase_markers"], markers)
+        self.assertEqual(document["end_ns"], 2_700)
+        self.assertEqual(set(document["counts"]), set(STATE_STREAMS + COMMAND_STREAMS) |
+                         {f"cameras/camera_{i}/rgb" for i in range(3)})
+        raw = zarr.open_group(str(self.path / "raw.zarr"), mode="r")
+        self.assertEqual(raw.attrs["phase_markers"], markers)
+
+    def test_marker_rejects_stale_requests_and_numbering_restarts_next_episode(self):
+        channel, connection, _, _, rig, _ = self.worker()
+        self.seed(channel, rig)
+        for request in (("mark_phase", 6, 1_200), ("mark_phase", 7, 999)):
+            connection.send(request)
+            self.assertEqual(self.receive(connection)[0], "phase_marker_rejected")
+        connection.send(("mark_phase", 7, 1_200))
+        self.assertEqual(self.receive(connection)[1]["index"], 1)
+        connection.send(("stop", 2_000, "complete", None))
+        connection.send(("mark_phase", 7, 2_100))
+        rig.frame_set(3_000)
+        self.assertEqual(self.receive(connection)[0], "phase_marker_rejected")
+        self.assertEqual(self.receive(connection)[0], "saved")
+        next_path = self.path.parent / "next"
+        connection.send(("start", 8, str(next_path), 4_000))
+        self.assertEqual(self.receive(connection), ("recording", str(next_path)))
+        for stream in STATE_STREAMS + COMMAND_STREAMS:
+            self.enqueue(channel, self.record(4_001, 1, stream), generation=8)
+        rig.frame_set(4_002)
+        connection.send(("mark_phase", 7, 4_050))
+        self.assertEqual(self.receive(connection)[0], "phase_marker_rejected")
+        connection.send(("mark_phase", 8, 4_100))
+        self.assertEqual(self.receive(connection)[1], {"index": 1, "time_ns": 4_100, "start_ns": 4_000})
+        connection.send(("stop", 4_500, "complete", None))
+        rig.frame_set(5_000)
+        self.assertEqual(self.receive(connection)[0], "saved")
+
+    def test_marker_write_failure_fails_capture_without_success_ack(self):
+        channel, connection, thread, _, _, _ = self.worker()
+        with patch("bimanual_teleop.recording.storage.append_phase_marker",
+                   side_effect=OSError("marker disk failure")):
+            connection.send(("mark_phase", 7, 1_200))
+            thread.join(2.)
+        self.assertFalse(thread.is_alive())
+        self.assertTrue(channel.failed.is_set())
+        document = json.loads((self.path / "episode.json").read_text())
+        self.assertEqual(document["status"], "failed")
+        self.assertEqual(document["phase_markers"], [])
+        self.assertIn("marker disk failure", document["reason"])
+
     def test_engagement_starts_after_delay_and_reengagement_resumes(self):
         recorder = self.coordinator()
         recorder.poll = Mock(return_value=None)
@@ -243,6 +316,50 @@ class RecordingLifecycleTests(unittest.TestCase):
             path.write_text("cameras: [a, b, c]\nframe_capacity: 8\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "frame_capacity"):
                 load_config(path)
+            path.write_text("cameras: [a, b, c]\ntask: rail_place\n", encoding="utf-8")
+            self.assertEqual(load_config(path).task, "rail_place")
+        self.assertIsNone(config.task)
+        for task in ("", "../x", "a/b", ".hidden", "-x", "x" * 65, 3):
+            with self.subTest(task=task), self.assertRaisesRegex(ValueError, "recording.task"):
+                RecordingConfig(("a", "b", "c"), task=task)
+
+    def test_episode_numbers_continue_across_runs_and_are_never_reused(self):
+        task = self.path.parent / "rail_place"
+        for name in ("episode_000000", "episode_000002", ".episode_000004.finalizing-12"):
+            (task / name).mkdir(parents=True)
+        (task / "notes").mkdir()
+        numbers = EpisodeNumbers(task)
+        self.assertEqual(numbers.allocate(), task / "episode_000005")
+        self.assertEqual(numbers.allocate(), task / "episode_000006")
+        numbers.close()
+        for name in ("episode_000000", "episode_000002", ".episode_000004.finalizing-12"):
+            (task / name).rmdir()
+        numbers = EpisodeNumbers(task)
+        self.addCleanup(numbers.close)
+        self.assertEqual(numbers.allocate(), task / "episode_000007")
+        self.assertEqual((task / ".next_episode").read_text(), "8\n")
+
+    def test_task_directory_admits_one_recorder_at_a_time(self):
+        task = self.path.parent / "rail_place"
+        first = EpisodeNumbers(task)
+        with self.assertRaisesRegex(RuntimeError, "另一个采集进程"):
+            EpisodeNumbers(task)
+        first.close()
+        second = EpisodeNumbers(task)
+        second.close()
+
+    def test_recorder_requires_task_before_camera_preflight(self):
+        recorder = Recorder(self.config)
+        def cleanup_channels():
+            for queue in (recorder.channel.queue, recorder.channel.errors):
+                queue.close()
+                queue.join_thread()
+        self.addCleanup(cleanup_channels)
+        self.assertEqual(recorder.metadata["session"], recorder.session)
+        with patch("bimanual_teleop.recording.spool.preflight_nvenc") as preflight:
+            with self.assertRaisesRegex(ValueError, "--task"):
+                recorder.start()
+        preflight.assert_not_called()
 
     def test_slow_writer_cannot_ack_complete_while_valid_tail_records_are_lost(self):
         channel, connection, _, _, rig, _ = self.worker(delay=.002)
@@ -292,9 +409,55 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.process.is_alive.return_value = True
         recorder.process.exitcode = 0
         recorder.state, recorder.error, recorder.ready = "recording", None, True
-        recorder.notices, recorder.session = [], self.path
+        recorder.notices, recorder.session = [], "test-session"
+        recorder.numbers = Mock(allocate=Mock(return_value=self.path))
         recorder._restart_required = False
         return recorder
+
+    def test_marker_uses_key_event_time_and_reports_only_the_write_ack(self):
+        recorder = self.coordinator()
+        parent, child = mp.Pipe()
+        self.addCleanup(parent.close)
+        self.addCleanup(child.close)
+        recorder.connection = parent
+        recorder.channel.generation.value = 7
+        with patch("bimanual_teleop.recording.recorder.time.monotonic_ns", return_value=1_250_000_000):
+            self.assertTrue(recorder.mark_phase())
+        self.assertEqual(self.receive(child), ("mark_phase", 7, 1_250_000_000))
+        self.assertEqual(recorder.notices, [])
+        recorder.state = "saving"
+        child.send(("phase_marker", {"index": 1, "time_ns": 1_250_000_000, "start_ns": 1_000_000_000}))
+        recorder.poll()
+        self.assertEqual(recorder.state, "saving")
+        self.assertEqual(recorder.notices, ["已记录边界标记 #1：本条 0.250 秒。"])
+        child.send(("phase_marker_rejected", "未记录"))
+        recorder.poll()
+        self.assertEqual(recorder.notices[-1], "未记录")
+
+    def test_marker_rejects_non_recording_states_and_capture_failures(self):
+        recorder = self.coordinator()
+        for state in ("idle", "starting", "paused", "resuming", "saving"):
+            with self.subTest(state=state):
+                recorder.state = state
+                self.assertFalse(recorder.mark_phase())
+        recorder.state = "recording"
+        recorder.error = "disk failure"
+        self.assertFalse(recorder.mark_phase())
+        recorder.error, recorder.ready = None, False
+        self.assertFalse(recorder.mark_phase())
+        recorder.ready = True
+        recorder.channel.failed.set()
+        self.assertFalse(recorder.mark_phase())
+        recorder.connection.send.assert_not_called()
+        self.assertTrue(all("未记录" in notice for notice in recorder.notices))
+
+    def test_marker_broken_pipe_uses_capture_failure_handling(self):
+        recorder = self.coordinator()
+        recorder.connection.send.side_effect = BrokenPipeError()
+        self.assertFalse(recorder.mark_phase())
+        self.assertTrue(recorder.channel.failed.is_set())
+        self.assertIn("标记通道已断开", recorder.error)
+        self.assertIn("未写入", recorder.notices[-1])
 
     def test_restart_drains_old_generation_from_shared_ring_before_new_episode_saves(self):
         recorder = Recorder(self.config)
@@ -333,7 +496,9 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.channel.latest_ns[:] = [time.monotonic_ns()] * 8
         recorder.begin()
         self.assertEqual(recorder.state, "starting")
-        self.assertEqual(self.receive(child)[0], "start")
+        message = self.receive(child)
+        self.assertEqual((message[0], message[2]), ("start", str(self.path)))
+        recorder.numbers.allocate.assert_called_once_with()
         recorder.end()
         self.assertEqual(self.receive(child)[0], "stop")
         child.send(("recording", str(self.path)))

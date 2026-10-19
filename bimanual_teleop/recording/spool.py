@@ -16,7 +16,7 @@ from .episodes import CAPTURED, CAPTURING, COMPLETE, FAILED
 from .schema import (CAMERA_FPS, DEPTH_SHAPE, DEPTH_STREAM, IMAGE_HEIGHT, IMAGE_WIDTH, MAIN_CAMERA,
                      RGB_SHAPE, STREAM_FIELDS)
 from .sink import Record
-from .storage import write_json
+from .storage import append_phase_marker, write_json
 
 
 # One slot across the three RGB rings and the depth ring is 3,379,200 bytes
@@ -320,7 +320,7 @@ class RawEpisodeWriter:
         (self.raw / "streams").mkdir(parents=True)
         (self.raw / "cameras").mkdir()
         self.document = dict(schema_version=2, status=CAPTURING, start_ns=start_ns,
-                             end_ns=None, metadata=metadata)
+                             end_ns=None, metadata=metadata, phase_markers=[])
         write_json(self.path / "episode.json", self.document)
         self.context = context or mp.get_context("spawn")
         self.frame_capacity = FRAME_CAPACITY if frame_capacity is None else frame_capacity
@@ -332,6 +332,9 @@ class RawEpisodeWriter:
         self.counts = {}
         self._timing = {"append": {"count": 0, "total_ns": 0, "last_ns": 0, "max_ns": 0}}
         self._closed = False
+
+    def add_phase_marker(self, time_ns):
+        return append_phase_marker(self.path, self.document, time_ns)
 
     def _timed(self, started):
         elapsed = time.monotonic_ns() - started

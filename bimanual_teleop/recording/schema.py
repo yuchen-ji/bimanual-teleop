@@ -20,7 +20,10 @@ STREAM_FIELDS = {
 RAW_FIELDS = {stream: dict(fields) | ({"eef_pose": 7} if stream.startswith("arms/") else {})
               for stream, fields in STREAM_FIELDS.items()}
 
+# Main view, robot left arm, robot right arm; serials are bound in recording.yaml.
 CAMERAS = ("camera_0", "camera_1", "camera_2")
+# Correct the upside-down left-arm mounting before preview and recording.
+RGB_ROTATION_DEG = {"camera_0": 0, "camera_1": 180, "camera_2": 0}
 MAIN_CAMERA = CAMERAS[0]
 CAMERA_FPS = 30
 IMAGE_WIDTH, IMAGE_HEIGHT = 640, 480

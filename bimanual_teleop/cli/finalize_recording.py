@@ -1,4 +1,4 @@
-"""将在线采集的原始会话整理为现有 MP4 和 raw.zarr 格式。"""
+"""将在线采集的原始条目整理为现有 MP4 和 raw.zarr 格式。"""
 
 import argparse
 from pathlib import Path
@@ -14,7 +14,7 @@ def main(argv=None):
     parser.add_argument("--input", required=True, type=Path,
                         help="任意目录；递归整理其下所有层级的条目，作废条目会被删除")
     parser.add_argument("--spool-archive", type=Path, default=Path("raw_spools"),
-                        help="整理成功后 raw_spool 移到 <此目录>/<session>/<episode>，条目内留下同名符号链接；"
+                        help="整理成功后 raw_spool 移到 <此目录>/<task>/<episode>，条目内留下同名符号链接；"
                              "相对当前目录解析，默认 raw_spools，不得位于 --input 之内")
     parser.add_argument("--refinalize", action="store_true",
                         help="把已 complete 的条目改回 captured，并从 raw_spool 重新生成 raw.zarr；"

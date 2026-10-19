@@ -127,7 +127,7 @@ def review_episode(episode, label, args, position):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", required=True, type=Path, help="原始记录根目录、session 或单个 episode")
+    parser.add_argument("--input", required=True, type=Path, help="原始记录根目录、任务目录或单个 episode")
     parser.add_argument("--all", action="store_true", help="也重审已有 keep/reject 结论的条目")
     parser.add_argument("--no-play", action="store_true", help="只生成预览并提问，不启动播放器")
     parser.add_argument("--player", help="播放命令，预览路径追加在末尾；默认 ffplay，找不到时用 xdg-open")

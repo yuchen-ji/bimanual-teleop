@@ -50,17 +50,17 @@ python scripts/teleop_quest_tianji.py
 ### 5. 采集数据
 
 ```bash
-python scripts/teleop_quest_tianji.py --record --viewer
+python scripts/teleop_quest_tianji.py --record --task rail_place --viewer
 ```
 
-接合后自动开始录制一条；脱离只暂停，再接合续录同一条。**S** 保存、**X** 作废、**Q** 保存并退出。换任务或回位前先按 S。
+接合后自动开始录制一条；脱离只暂停，再接合续录同一条。**S** 保存、**X** 作废、**Q** 保存并退出。换任务或回位前先按 S。条目写入 `recordings/<task>/episode_NNNNNN`，同一任务的编号跨多次启动连续。
 
 ### 6. 整理并导出
 
 ```bash
-python scripts/finalize_recording.py --input recordings/<session>
-python scripts/convert_recording.py --input recordings/<session> \
-  --output datasets/episodes_eef.zarr --action-space eef
+python scripts/finalize_recording.py --input recordings/<task>
+python scripts/convert_recording.py --input recordings/<task> \
+  --output datasets/<task>_eef.zarr --action-space eef
 ```
 
 整理时会删除作废的条目。导出默认用修复模式，不需要人工：短缺帧沿用前一张图像，无法修复的帧剔除，暂停处自动切开，并逐条打印丢弃和修复了什么。导出前可选 `--dry-run` 试运行（不写文件）和 `review_recording.py` 审片（剔除条目、合并暂停接缝）。全部步骤一览见[数据采集操作的流程总览](docs/recording_guide.md#流程总览)。

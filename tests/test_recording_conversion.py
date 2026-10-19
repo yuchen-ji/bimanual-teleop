@@ -292,7 +292,7 @@ class RecordingConversionTests(unittest.TestCase):
             result = main(["--input", str(self.input), "--action-space", "joint", "--dry-run"])
         self.assertEqual(result, 0)
         self.assertIn("修复模式", output.getvalue())
-        self.assertIn("episode_000000：参考 2 帧，写入 2 帧（100.0%）", output.getvalue())
+        self.assertIn("episode_000000：参考 4 帧，写入 4 帧（100.0%）", output.getvalue())
         self.assertIn("修复：缺帧沿用前一张图 0 帧；放宽插值 0 帧", output.getvalue())
         self.assertIn("试运行：将导出 1 条原始演示", output.getvalue())
         self.assertFalse(any(self.root.glob("*.zarr")))

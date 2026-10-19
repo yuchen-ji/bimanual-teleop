@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from bimanual_teleop.cli.runtime import TeleopUI, run_loop
+from bimanual_teleop.recording.config import RecordingConfig
 from bimanual_teleop.recording.ui import RecordingUI
 from bimanual_teleop.system import SystemState
 from bimanual_teleop.types import Health
@@ -33,6 +34,30 @@ class ControlsTests(unittest.TestCase):
         self.ui.handle("t")
         self.assertEqual(self.runtime.engage.call_count, 2)
         self.assertEqual(self.runtime.state, SystemState.ENGAGED)
+
+    def test_marker_key_accepts_uppercase_and_custom_key_without_motion_changes(self):
+        for mark_key, events in (("b", ("b", "B", "b")), ("m", ("M", "m", "M"))):
+            with self.subTest(mark_key=mark_key):
+                recorder = Mock(config=RecordingConfig(("a", "b", "c"), mark_key=mark_key))
+                ui = RecordingUI(self.runtime, None, recorder=recorder, emit=self.messages.append)
+                for event in events:
+                    ui.handle(event)
+                self.assertEqual(recorder.mark_phase.call_count, 3)
+                recorder.end.assert_not_called()
+                recorder.pause.assert_not_called()
+                self.runtime.pause.assert_not_called()
+                self.runtime.engage.assert_not_called()
+                ui.quit = True
+                ui.handle(mark_key)
+                self.assertEqual(recorder.mark_phase.call_count, 3)
+
+    def test_marker_key_cannot_intercept_teleoperation_controls(self):
+        for options in ({"toggle_engagement_key": "b"},
+                        {"ready_pose_key": "b", "home_enabled": True}):
+            with self.subTest(options=options):
+                recorder = Mock(config=RecordingConfig(("a", "b", "c")))
+                with self.assertRaisesRegex(ValueError, "conflicts"):
+                    RecordingUI(self.runtime, None, recorder=recorder, **options)
 
     def test_toggle_cancels_pending_engagement(self):
         self.runtime.health.return_value = Health(False, 0, "waiting")

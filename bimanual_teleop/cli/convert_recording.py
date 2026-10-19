@@ -151,7 +151,7 @@ def summary_lines(report, *, verbose=False):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", required=True, type=Path, help="原始记录根目录、session 或单个 episode")
+    parser.add_argument("--input", required=True, type=Path, help="原始记录根目录、任务目录或单个 episode")
     parser.add_argument("--output", type=Path, help="新建的 .zarr 数据集，禁止覆盖；--dry-run 时可省略")
     parser.add_argument("--action-space", required=True, choices=("eef", "joint"),
                         help="eef: 双臂目标末端+双手（52维）；joint: 双臂目标关节+双手（54维）")

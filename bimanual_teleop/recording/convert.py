@@ -19,7 +19,8 @@ import tempfile
 
 from bimanual_teleop.common.console import EpisodeProgress
 
-from .episodes import COMPLETE, DISCARDED, FAILED, MANIFEST, episode_label, find_episodes, read_manifest
+from .episodes import (COMPLETE, DISCARDED, FAILED, MANIFEST, episode_label, find_episodes,
+                       read_manifest, read_phase_markers)
 from .plan import STATE_FIELDS, plan_episode
 from .policy import load_policy
 from .quality import FAIL, SKIP, WARN, episode_report, load_thresholds, metadata_differences, problem, worst
@@ -37,6 +38,17 @@ def _append(data, key, values):
     if data[key].shape[1:] != values.shape[1:]:
         raise ValueError(f"Output shape changed for {key}")
     data[key].append(values, axis=0)
+
+
+def _phase_marker_records(source, markers, *, times=None, offset=0):
+    """Map recording-time markers to insertion boundaries in retained frames."""
+    import numpy as np
+
+    return [{"source_episode": source, "index": marker["index"],
+             "recording_time_ns": marker["time_ns"],
+             "output_boundary": (offset + int(np.searchsorted(times, marker["time_ns"], side="left"))
+                                 if times is not None and len(times) else None)}
+            for marker in markers]
 
 
 def _image_array(data, key, total, shape, dtype):
@@ -177,19 +189,21 @@ def convert_recordings(input_path, output_path=None, *, action_space, include_de
             output = zarr.open_group(str(temporary), mode="w")
             output.create_group("data")
             output.create_group("meta")
-        segments, episode_ends, offset = [], [], 0
+        segments, episode_ends, phase_markers, offset = [], [], [], 0
         has_depth = reference = None
         for episode in episodes:
             descriptor = read_manifest(episode)
             name = episode_label(episode, source)
-            item = {"source_episode": name, "status": descriptor.get("status", "unknown")}
+            item = {"source_episode": name, "status": descriptor.get("status", "unknown"), "phase_markers": []}
             report["episodes"].append(item)
-            if item["status"] != COMPLETE:
-                item["level"] = SKIP if item["status"] in (FAILED, DISCARDED) else WARN
-                item["reason"] = descriptor.get("finalize_error") or descriptor.get("reason") or ""
-                progress.finish_episode()
-                continue
             try:
+                markers = read_phase_markers(descriptor)
+                item["phase_markers"] = _phase_marker_records(name, markers)
+                if item["status"] != COMPLETE:
+                    item["level"] = SKIP if item["status"] in (FAILED, DISCARDED) else WARN
+                    item["reason"] = descriptor.get("finalize_error") or descriptor.get("reason") or ""
+                    progress.finish_episode()
+                    continue
                 review = read_review(episode)
                 if review is not None:
                     item["review"] = {key: review[key] for key in ("decision", "note") if key in review}
@@ -226,11 +240,13 @@ def convert_recordings(input_path, output_path=None, *, action_space, include_de
                 progress.finish_episode()
                 continue
             item.update(episode_report(plan, policy, thresholds))
+            item["phase_markers"] = _phase_marker_records(name, markers, times=plan.query[plan.keep], offset=offset)
             if item.get("metadata_differences") and allow_mixed_metadata:
                 item["checks"].append(problem("metadata", f"元数据与 {reference[0]} 不同："
                                               f"{'，'.join(item['metadata_differences'])}", WARN))
             item["level"] = FAIL if "error" in item else worst(item["checks"])
             if plan.runs:
+                phase_markers.extend(item["phase_markers"])
                 if output is not None:
                     _write_episode(output, plan, raw, policy, progress)
                 runs = plan.segment_records(offset)
@@ -247,7 +263,7 @@ def convert_recordings(input_path, output_path=None, *, action_space, include_de
         meta.create_dataset("episode_ends", data=np.asarray(episode_ends, dtype=np.int64), compressor=None)
         meta.create_dataset("segment_ends", data=np.asarray([segment["output_end"] for segment in segments],
                                                             dtype=np.int64), compressor=None)
-        meta.attrs.update(segments=segments, quality_report=report)
+        meta.attrs.update(segments=segments, phase_markers=phase_markers, quality_report=report)
         output.attrs.update(schema_version=2, format="diffusion_policy_replay_buffer", action_space=action_space,
                             include_depth=include_depth, episode_ends_semantics="source_demonstrations",
                             sampling_boundaries="meta/segment_ends",

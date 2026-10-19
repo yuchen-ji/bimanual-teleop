@@ -142,14 +142,15 @@ class RecordingRepairTests(unittest.TestCase):
         self.assertEqual(report['conversion_config']['mode'], 'repair')
         self.assertFalse(report['episodes'][0]['pauses'][0]['merged'])
 
-    def test_project_default_exports_10hz_from_30hz_camera_recordings(self):
+    def test_explicit_10hz_config_exports_from_30hz_camera_recordings(self):
         # High-rate measured state and command streams remain available while
         # all output observations and absolute action labels share a 10 Hz grid.
         times = np.arange(61) * 1000 / 30
         make_episode(self.root / 'raw', main=times, state=np.arange(0, 2021, 10),
                      commands=np.arange(0, 2021, 20))
         path = self.root / '10hz.zarr'
-        report = convert_recordings(self.root / 'raw', path, action_space='eef')
+        report = convert_recordings(self.root / 'raw', path, action_space='eef',
+                                    conversion_config={'target_fps': 10})
         data = zarr.open_group(str(path), mode='r')
         self.assertEqual(data.attrs['target_fps'], 10)
         self.assertEqual(report['output_segments'], 1)

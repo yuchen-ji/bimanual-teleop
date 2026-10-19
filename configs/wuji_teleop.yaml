@@ -1,8 +1,12 @@
 # Wuji Glove 与 Hand2 配置；使用 YAML 格式，支持 # 注释。
 # Hand2 固定使用 MIT 控制；profile_id 和 mode 无需填写，由程序内部维护。
 # 填已有标定用户名，例如 "yuchen"；"" 使用 SDK 默认用户，--user-name 可临时覆盖。
-sdk_user_name: "HaoranHu"
+# sdk_user_name: "HaoranHu"
+sdk_user_name: "wangyongsen"
 # sdk_user_name: "yuchen"
+# sdk_user_name: "Ma"
+# sdk_user_name: "Default"
+
 
 # 以下为当前本机使用的参数值，不代表厂家推荐参数；所有 20 个关节共用这一组参数。
 # 参数含义见 https://docs.wuji.tech/docs/zh/wuji-hand/latest/control-guide/。

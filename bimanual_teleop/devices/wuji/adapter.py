@@ -23,7 +23,7 @@ from bimanual_teleop.types import (
     SampleRef, SourceTime, Submission,
 )
 
-SDK_VERSION = "2026.8.31"
+SDK_VERSION = "2026.10.12"
 JOINT_NAMES = tuple(f"finger{finger}_joint{joint}" for finger in range(1, 6)
                     for joint in range(1, 5))
 SKELETON_NAMES = ("wrist", "thumb_cmc", "thumb_mcp", "thumb_ip", "thumb_tip",

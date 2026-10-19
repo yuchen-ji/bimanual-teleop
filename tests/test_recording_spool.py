@@ -75,13 +75,15 @@ class RecordingSpoolTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "NVIDIA 驱动不可用"):
                 preflight_nvenc()
 
-    def _capture(self, episode):
+    def _capture(self, episode, *, phase_markers=()):
         # Fork keeps the test-only CPU encoder replacement inside worker processes.
         context = mp.get_context("fork")
         with patch("bimanual_teleop.recording.spool.NVENCVideo", RGBVideo):
             writer = RawEpisodeWriter(episode, self.start, self.metadata,
                                       context=context, frame_capacity=2)
             writer.prepare_rgb({f"camera_{index}": {} for index in range(3)})
+            for stamp in phase_markers:
+                writer.add_phase_marker(stamp)
             for camera_index in range(3):
                 camera = f"camera_{camera_index}"
                 for frame_index in range(2):
@@ -111,6 +113,8 @@ class RecordingSpoolTests(unittest.TestCase):
         captured = json.loads((self.episode / "episode.json").read_text())
         self.assertEqual(captured["status"], "captured")
         self.assertFalse((self.episode / "raw.zarr").exists())
+        captured.pop("phase_markers")  # Older spools did not store markers.
+        (self.episode / "episode.json").write_text(json.dumps(captured))
         progress = CountingProgress()
         progress.episode("episode_000000")
         with patch("bimanual_teleop.devices.tianji.model.TianjiKinematics",
@@ -127,6 +131,22 @@ class RecordingSpoolTests(unittest.TestCase):
         np.testing.assert_array_equal(raw["cameras/camera_0/depth/image"][0], depth)
         for index in range(3):
             self.assertEqual(raw[f"cameras/camera_{index}/rgb/time_ns"].shape, (2,))
+
+    def test_finalize_and_refinalize_preserve_captured_markers(self):
+        stamps = (self.start + 500_000, self.start + 40_000_000)
+        self._capture(self.episode, phase_markers=stamps)
+        markers = [{"index": i, "time_ns": stamp} for i, stamp in enumerate(stamps, 1)]
+        self.assertEqual(json.loads((self.episode / "episode.json").read_text())["phase_markers"], markers)
+        with patch("bimanual_teleop.devices.tianji.model.TianjiKinematics", return_value=self.kine):
+            finalize_episode(self.episode)
+            report = finalize_recordings(self.episode, refinalize=True)
+        self.assertEqual(report["complete"], 1)
+        self.assertEqual(report["failed"], 0)
+        document = json.loads((self.episode / "episode.json").read_text())
+        self.assertEqual(document["phase_markers"], markers)
+        self.assertEqual(document["schema_version"], 1)
+        raw = zarr.open_group(str(self.episode / "raw.zarr"), mode="r")
+        self.assertEqual(raw.attrs["phase_markers"], markers)
 
     def test_finalize_searches_every_depth_and_deletes_discarded(self):
         root = self.episode.parent / "recordings"

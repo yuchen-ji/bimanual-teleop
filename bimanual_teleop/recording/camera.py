@@ -5,8 +5,13 @@ from queue import Empty, Full, Queue
 import threading
 import time
 
-from .schema import CAMERA_FPS, CAMERAS, IMAGE_HEIGHT, IMAGE_WIDTH, MAIN_CAMERA
+from .schema import CAMERA_FPS, CAMERAS, IMAGE_HEIGHT, IMAGE_WIDTH, MAIN_CAMERA, RGB_ROTATION_DEG
 from .sink import Record
+
+
+def orient_rgb(camera, image):
+    """Apply the rig's mounting correction; the returned pixels may be a view."""
+    return image[::-1, ::-1] if RGB_ROTATION_DEG.get(camera, 0) == 180 else image
 
 
 class _ClockBridge:
@@ -112,7 +117,8 @@ class CameraRig:
                 color = profile.get_stream(self.rs.stream.color)
                 info = {"serial": serial, "model": device.get_info(self.rs.camera_info.name),
                         "resolution": [IMAGE_WIDTH, IMAGE_HEIGHT], "fps": CAMERA_FPS,
-                        "rgb_intrinsics": _intrinsics(color)}
+                        "rgb_intrinsics": _intrinsics(color),
+                        "image_rotation_deg": RGB_ROTATION_DEG[name]}
                 if depth:
                     depth_profile = profile.get_stream(self.rs.stream.depth)
                     extrinsics = depth_profile.get_extrinsics_to(color)
@@ -201,7 +207,10 @@ class CameraRig:
                 self._preview_next_ns[key] = stamp + 200_000_000
             if mode not in ("record", "preview"):
                 return
-            image = self._np.asarray(frame.get_data()).copy()
+            image = self._np.asarray(frame.get_data())
+            if kind == "rgb":
+                image = orient_rgb(name, image)
+            image = image.copy()
             record = Record(f"cameras/{name}/{kind}", stamp, sequence,
                             {"source_time_ms": source_ms})
             try:
