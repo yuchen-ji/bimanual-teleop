@@ -6,14 +6,14 @@
 
 所有命令在 `conda activate bimanual-teleop` 后于项目根目录运行：
 
-| 步骤 | 命令 | 必须 | 结果 |
-| --- | --- | --- | --- |
-| 采集 | `teleop_quest_tianji.py --record --viewer` | 是 | `recordings/<session>/episode_*/`，状态 `captured` |
-| 整理 | `finalize_recording.py` | 是 | 生成 `raw.zarr`，状态 `complete`；删除作废条目 |
-| 试运行 | `convert_recording.py --dry-run` | 否 | 打印每条的等级、丢弃和修复，不写文件 |
-| 审片 | `review_recording.py` | 否 | `review.json`：剔除条目、决定暂停接缝是否接上 |
-| 导出 | `convert_recording.py --output` | 是 | `datasets/<name>.zarr`，默认修复模式 |
-| 训练 | `BimanualImageDataset` | — | 读取导出的数据集 |
+| 步骤   | 命令                                         | 必须 | 结果                                                   |
+| ------ | -------------------------------------------- | ---- | ------------------------------------------------------ |
+| 采集   | `teleop_quest_tianji.py --record --viewer` | 是   | `recordings/<session>/episode_*/`，状态 `captured` |
+| 整理   | `finalize_recording.py`                    | 是   | 生成`raw.zarr`，状态 `complete`；删除作废条目      |
+| 试运行 | `convert_recording.py --dry-run`           | 否   | 打印每条的等级、丢弃和修复，不写文件                   |
+| 审片   | `review_recording.py`                      | 否   | `review.json`：剔除条目、决定暂停接缝是否接上        |
+| 导出   | `convert_recording.py --output`            | 是   | `datasets/<name>.zarr`，默认修复模式                 |
+| 训练   | `BimanualImageDataset`                     | —   | 读取导出的数据集                                       |
 
 最少只需采集、整理、导出三步：
 
@@ -44,15 +44,15 @@ python scripts/teleop_quest_tianji.py --record --viewer
 
 ## 3. 采集
 
-| 操作 | 效果 |
-| --- | --- |
-| 接合（Enter；开启手势时也可双手比 V） | 等待 `start_delay_s`（默认 0）后开始新的一条；有暂停中的条目则继续该条 |
-| 脱离（Enter、Space、摇滚手势或设备故障） | 暂停当前条；再次接合续录同一条，暂停时间不计入 |
-| H | 暂停当前条并回位；再次接合仍续录同一条 |
-| S | 保存当前条，遥操作继续 |
-| X | 作废当前条 |
-| Q | 保存当前条并退出 |
-| Ctrl+C | 退出；当前条记为失败，不能导出 |
+| 操作                                     | 效果                                                                    |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| 接合（Enter；开启手势时也可双手比 V）    | 等待`start_delay_s`（默认 0）后开始新的一条；有暂停中的条目则继续该条 |
+| 脱离（Enter、Space、摇滚手势或设备故障） | 暂停当前条；再次接合续录同一条，暂停时间不计入                          |
+| H                                        | 暂停当前条并回位；再次接合仍续录同一条                                  |
+| S                                        | 保存当前条，遥操作继续                                                  |
+| X                                        | 作废当前条                                                              |
+| Q                                        | 保存当前条并退出                                                        |
+| Ctrl+C                                   | 退出；当前条记为失败，不能导出                                          |
 
 - 换任务、回位或场景变化前先按 S，避免前后画面拼进同一条。
 - 保存时若仍在接合状态，不会自动开始新条；脱离后再接合。
@@ -95,7 +95,9 @@ python scripts/convert_recording.py \
 ```
 
 - 默认按[转换配置](../configs/recording_conversion.yaml)的修复模式处理：相机偶尔缺 1～2 帧时沿用前一张图像；缺得更多，或状态、指令缺失的帧剔除；暂停处自动切开。
+- 当前导轨任务默认 `target_fps: 10`：输出观测和动作相隔100 ms，相机原始采集仍为30 Hz。改变频率须从原始记录重新导出到新路径，不能只修改已有Zarr的频率属性。
 - 终端逐条打印 `[OK]`、`[WARN]`、`[FAIL]` 或 `[SKIP]` 和写入帧数，下面几行是：
+
   - “丢弃”：首尾裁剪是条目开头或结尾缺少状态或指令的帧，每条通常 1～2 帧，属正常；中间剔除会把条目切成多个片段。括号内是原因。
   - “修复”：沿用前一张图像的帧数及图像最旧多少毫秒、放宽插值的帧数、因暂停在哪一帧切开。
   - “问题”：超出[质量配置](../configs/recording_quality.yaml)阈值的项，如相机丢帧或断档、跨相机偏差、低维流频率偏低、时长过短。等级只是标注，不影响写入哪些帧。
@@ -107,7 +109,22 @@ python scripts/convert_recording.py \
 
 ## 7. 训练接入
 
-导出的数据集用 `bimanual_teleop.recording.dataset.BimanualImageDataset` 读取，训练环境需另装官方 `diffusion_policy`（本项目环境不含 PyTorch）。
+本项目负责采集、整理和转换；模型训练、离线评估和真机评估由相邻的 [diffusion_policy项目](../../diffusion_policy/docs/tianji-rail/README.md)负责。两个项目各自使用环境：本项目为 `bimanual-teleop`，模型项目为 `tianji-rail-diffusion-policy`。
+
+当前导轨模型使用模型项目中的 `TianjiRailImageDataset`，直接读取 `datasets/rail_place.zarr` 等导出结果；该模型要求 `--action-space eef` 的52维动作。无需在模型项目中重复整理或转换，训练命令及参数见上面的模型使用说明。
+
+当前10 Hz实验使用新的 `datasets/rail_place_10hz.zarr`，旧 `rail_place.zarr` 保留为30 Hz数据。对已经整理完成的导轨记录重新导出：
+
+```bash
+python scripts/convert_recording.py \
+  --input recordings/rail_place \
+  --output datasets/rail_place_10hz.zarr \
+  --action-space eef
+```
+
+输出已存在时无需重复导出。训练项目会校验 `target_fps=10` 和连续片段内100 ms的时间间隔；训练、预测动作及真机 `policy_hz` 必须一致。新模型从头训练，不恢复旧30 Hz实验。
+
+其他DP配置也可以用本项目提供的 `bimanual_teleop.recording.dataset.BimanualImageDataset` 适配器读取；训练环境需另装官方 `diffusion_policy`（本项目环境不含 PyTorch）。
 
 - [`configs/dp_eef.yaml`](../configs/dp_eef.yaml) 对应 `--action-space eef`（动作 52 维），[`configs/dp_joint.yaml`](../configs/dp_joint.yaml) 对应 `--action-space joint`（动作 54 维）。它们只是数据读取配置片段，合并到训练配置根节点，并把 `dataset_path` 改成实际导出的路径。
 - 适配器按片段采样，训练窗口不跨暂停或剔除造成的缺口；采样和训练／验证划分规则见[数据采集参考](recording_reference.md#dp-训练接入)。

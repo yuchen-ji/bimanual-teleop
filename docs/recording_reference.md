@@ -176,7 +176,7 @@ python scripts/convert_recording.py --input PATH --output datasets/<name>.zarr \
 
 | 规则 | repair（默认） | strict |
 | --- | --- | --- |
-| 时间基准 | 每个录制块内，从首个主相机帧开始的固定网格，`target_fps`（30） | 主相机真实帧时刻 |
+| 时间基准 | 每个录制块内，从首个主相机帧开始的固定网格，项目YAML默认 `target_fps=10`（原始RGB仍为30 Hz） | 主相机真实帧时刻 |
 | 相机匹配 | 最近帧，相差 ≤`camera_match_tolerance_ms`（20）；连续不超过 `max_missing_camera_frames`（2）个缺帧时复用前一帧 | `camera_1`、`camera_2` 取最近帧，相差 ≤20 ms，不复用 |
 | 状态插值两端间隔 | ≤`max_state_interp_gap_ms`（100） | ≤50 ms |
 | 动作命令龄 | ≤`max_command_age_ms`（50） | ≤50 ms |

@@ -164,7 +164,7 @@ class RecordingQualityTests(unittest.TestCase):
             result = main(["--input", str(self.root), "--action-space", "eef", "--dry-run",
                            "--quality-config", str(config), "--report", str(saved), "--verbose"])
         self.assertEqual(result, 0, output.getvalue())
-        self.assertIn("[OK] episode_000000：参考 30 帧", output.getvalue())
+        self.assertIn("[OK] episode_000000：参考 10 帧", output.getvalue())
         self.assertIn("camera_1 对 camera_0", output.getvalue())
         self.assertEqual(json.loads(saved.read_text(encoding="utf-8"))["episodes"][0]["level"], "OK")
 
@@ -175,7 +175,7 @@ class RecordingQualityTests(unittest.TestCase):
             result = main(["--input", str(short), "--action-space", "eef",
                            "--output", str(self.root.parent / "short.zarr")])
         self.assertEqual(result, 0, output.getvalue())
-        self.assertIn("[FAIL] episode_000000：参考 4 帧，写入 4 帧", output.getvalue())
+        self.assertIn("[FAIL] episode_000000：参考 2 帧，写入 2 帧", output.getvalue())
         self.assertIn("问题：时长 0.2 s", output.getvalue())
 
         make_episode(short, name="episode_000001", metadata={**TEST_METADATA, "model_sha256": "other"})

@@ -49,7 +49,7 @@ class RecordingReviewTests(unittest.TestCase):
         item = report["episodes"][1]
         self.assertEqual((item["skipped"], item["review"]), ("review_reject", {"decision": "reject", "note": "抓取失败"}))
         self.assertNotIn("reference_frames", item)
-        self.assertEqual((report["output_episodes"], report["output_frames"]), (1, 4))
+        self.assertEqual((report["output_episodes"], report["output_frames"]), (1, 2))
         self.assertIn("episode_000001：审片剔除，整条跳过（抓取失败）", "\n".join(summary_lines(report)))
 
     def test_pause_reviews_in_review_json_match_the_config_and_win_per_seam(self):

@@ -142,6 +142,21 @@ class RecordingRepairTests(unittest.TestCase):
         self.assertEqual(report['conversion_config']['mode'], 'repair')
         self.assertFalse(report['episodes'][0]['pauses'][0]['merged'])
 
+    def test_project_default_exports_10hz_from_30hz_camera_recordings(self):
+        # High-rate measured state and command streams remain available while
+        # all output observations and absolute action labels share a 10 Hz grid.
+        times = np.arange(61) * 1000 / 30
+        make_episode(self.root / 'raw', main=times, state=np.arange(0, 2021, 10),
+                     commands=np.arange(0, 2021, 20))
+        path = self.root / '10hz.zarr'
+        report = convert_recordings(self.root / 'raw', path, action_space='eef')
+        data = zarr.open_group(str(path), mode='r')
+        self.assertEqual(data.attrs['target_fps'], 10)
+        self.assertEqual(report['output_segments'], 1)
+        np.testing.assert_allclose(np.diff(data['data/timestamp'][:]), .1, atol=1e-9)
+        np.testing.assert_array_equal(data['meta/camera_source_row'][:, 0], np.arange(0, 61, 3))
+        self.assertLessEqual(data['meta/command_age_ns'][:].max(), 50_000_000)
+
     def test_report_says_what_was_dropped_and_how_frames_were_repaired(self):
         from bimanual_teleop.cli.convert_recording import summary_lines
 
