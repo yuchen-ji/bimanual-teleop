@@ -228,6 +228,8 @@ def build_scene(world, config, model, capture=True):
     manifest = json.loads((ROOT / "assets/generated/manifest.json").read_text())
     if any(config["cameras"]["wrist"][side]["pose_in_bracket"] is not None for side in ("left", "right")):
         _bind_wrist_windows(stage, robot_path, manifest["cad"]["tool_stack"])
+    from .materials import apply_robot_appearance
+    apply_robot_appearance(stage, robot_path, config["robot"]["appearance"])
     geometry = manifest["fixture_geometry"]
     matte = _material(stage, "/World/Materials/Table", appearance["wood_linear_rgb"], roughness=.6)
     frame_material = _material(stage, "/World/Materials/TableFrame", appearance["frame_linear_rgb"], metallic=.3, roughness=.6)

@@ -118,6 +118,9 @@ def validate(config):
     for key in ("ambient_intensity", "key_intensity"):
         if not math.isfinite(appearance[key]) or appearance[key] < 0:
             raise ValueError(f"Scene {key} must be finite and nonnegative")
+    for key, color in config["robot"]["appearance"].items():
+        if len(color) != 3 or not all(math.isfinite(value) and 0 <= value <= 1 for value in color):
+            raise ValueError(f"Robot {key} requires three linear RGB values in [0, 1]")
     for name in ("initial_center", "initial_rpy_deg"):
         if len(rail[name]) != 3 or not all(math.isfinite(value) for value in rail[name]):
             raise ValueError(f"Rail {name} requires three finite values")

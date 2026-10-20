@@ -33,6 +33,12 @@ robot:
   arm_stiffness: 400
   arm_damping: 40
   crossed_controllers: true
+  appearance:
+    # Approximate the real robot's white painted shells and dark hardware/gloves.
+    shell_linear_rgb: [0.82, 0.82, 0.80]
+    trim_linear_rgb: [0.020, 0.023, 0.025]
+    hand_linear_rgb: [0.012, 0.014, 0.016]
+    metal_linear_rgb: [0.30, 0.32, 0.34]
 scene:
   asset_profile: rail_task_cad_v1
   # +X points from the robot towards the far, narrow end of the 1 m table.
