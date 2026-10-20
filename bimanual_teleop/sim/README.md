@@ -4,6 +4,12 @@
 
 当前默认场景使用 `assets/source/rail_task/` 中复制的导轨任务 CAD：480 mm 长导轨、长导轨台、完整桌子、两侧各五层转运箱，以及两个腕部的力传感器、相机与支架。机器人面向桌子窄边，导轨默认在导轨台上，Reset 恢复同一位置。[模型与装配说明](docs/task-models.md)
 
+头部相机已按真实导轨视频末帧设置位置、朝向、内参和镜头畸变；配置位于 `configs/default.yaml` 的 `cameras.head`。[相机对齐说明](docs/head-camera.md)
+
+“View head camera”默认使用 1280×960 原生预览，三路采集仍为 640×480。`cameras.preview_scale` 控制预览倍数；实时光照采样与抗锯齿设置集中在 `rendering.py`。腕部相机实体采用当前 CAD 装配位置；光学位姿已应用 2026-10-20 的实测手眼标定，内参和畸变使用对应 D436 参数，默认加载 `configs/wrist_camera_calibrated.yaml`。[腕部标定结果](docs/wrist-cameras.md) · [标定采样与操作步骤](docs/wrist-handeye.md)
+
+桌面采用暖棕木纹贴图，转运箱采用黑色塑料细纹贴图，桌架采用深色，桌上增加仅用于显示的黑色垫板，地面采用暖灰色。颜色和室内光照在 `configs/default.yaml` 的 `scene.appearance` 中调整，颜色值为线性 RGB；`textures: false` 可切回纯色，`table_mat: false` 可隐藏垫板。贴图保存在 `assets/textures/` 并由 Git 跟踪。外观按真实视频目视近似，不代表实测反射率或办公室背景重建。修改后重新启动 Isaac 生效。[腕部相机数据与光心修正说明](docs/wrist-cameras.md)
+
 ## 日常使用
 
 在 **Remmina 远程桌面内的终端**运行：

@@ -38,13 +38,25 @@ scene:
   # +X points from the robot towards the far, narrow end of the 1 m table.
   table_center: [0.78, 0, 0]
   table_size: [1.00, 0.67, 0.73]
-  fixture_origin: [0.65, 0, 0.73]
+  # Robot-side long edge is 0.13 m inside the near table edge (X=0.28 m).
+  fixture_origin: [0.46, 0, 0.73]
   # Origins of the accessible, fifth box; lower four boxes start at floor Z=0.
   bin_centers: [[0.72, 0.56, 0.712], [0.72, -0.56, 0.712]]
   bin_stack_count: 5
   bin_stack_pitch_m: 0.178  # Same 4 mm nesting as the supplied scene assembly.
   bin_inner_size: [0.465, 0.320, 0.182]
   bin_wall: 0.01
+  # Linear RGB, fitted visually to episode_000010 (not measured reflectance).
+  appearance:
+    textures: true  # Local wood/plastic albedo textures; no online material dependencies.
+    wood_linear_rgb: [0.12, 0.065, 0.032]
+    frame_linear_rgb: [0.022, 0.025, 0.026]
+    mat_linear_rgb: [0.008, 0.011, 0.010]
+    bins_linear_rgb: [0.010, 0.016, 0.014]
+    floor_linear_rgb: [0.18, 0.17, 0.15]
+    table_mat: true  # Visual overlay only; no extra collision geometry.
+    ambient_intensity: 700
+    key_intensity: 800
 rail:
   size_m: [0.480, 0.045821628, 0.025709009]
   hole_spacing_m: 0.265
@@ -58,13 +70,38 @@ rail:
   rest_offset_m: 0
   friction: 0.5
   finger_friction: 0.8
-  initial_center: [0.648758353, 0.006474946, 0.821278683]
+  initial_center: [0.458758353, 0.006474946, 0.821278683]
   initial_rpy_deg: [0, 0, 90.064975509]
 cameras:
   width: 640
   height: 480
+  preview_scale: 2  # Render the desktop head-camera view at 1280x960; recordings stay 640x480.
   horizontal_fov_deg: 70
   main_depth: false
+  wrist_calibration_file: configs/wrist_camera_calibrated.yaml  # Enabled only after measured hand-eye calibration passes.
+  wrist:
+    # episode_000010 RGB parameters, expressed in the delivered video orientation.
+    left:
+      pose_in_bracket: null  # Measured OpenCV optical pose overrides the provisional CAD estimate.
+      intrinsics: {fx: 388.1593322753906, fy: 387.6533508300781, cx: 329.10675048828125, cy: 230.8677978515625}
+      # camera_1 is rotated 180 degrees: principal point reflected, p1/p2 negated.
+      distortion_coefficients: [-0.0560857392847538, 0.06375053524971008, -0.0007888228865340352, -0.0001234443043358624, -0.021498262882232666]
+    right:
+      pose_in_bracket: null
+      intrinsics: {fx: 387.45574951171875, fy: 387.0589599609375, cx: 331.08758544921875, cy: 243.1349639892578}
+      distortion_coefficients: [-0.05294565111398697, 0.05861711502075195, -0.00033983553294092417, 0.00026320802862755954, -0.018332328647375107]
+  # RGB optical frame, fitted to episode_000010/camera_0, final frame 1268 + table depth.
+  # Reference and coordinate conventions: docs/head-camera.md.
+  head:
+    position_world_m: [0.10298328650824706, 0.05750554750177768, 1.43141431697177]
+    quaternion_xyzw: [-0.660451403775883, 0.6628400249119203, -0.2506141029852302, 0.24827326881913575]
+    intrinsics:
+      fx: 388.1229248046875
+      fy: 387.6435852050781
+      cx: 332.01959228515625
+      cy: 260.2157897949219
+    # OpenCV order: k1, k2, p1, p2, k3; matches the original camera_0.mp4.
+    distortion_coefficients: [-0.0528881624, 0.0594978705, 0.0010578580, -0.0006076732, -0.0188824460]
 operator:
   quest_serial: null
   sdk_user_name: ""

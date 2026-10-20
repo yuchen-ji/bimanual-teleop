@@ -18,6 +18,15 @@ def load_config(path=None):
         if not isinstance(supplied, dict):
             raise ValueError("Simulation configuration must be a mapping")
         _merge(default, supplied)
+    calibration_file = default["cameras"]["wrist_calibration_file"]
+    if calibration_file is not None and not isinstance(calibration_file, str):
+        raise ValueError("Camera wrist_calibration_file must be a path string or null")
+    if calibration_file:
+        supplied = yaml.safe_load(sim_path(calibration_file).read_text())
+        if (not isinstance(supplied, dict) or set(supplied) != {"cameras"}
+                or not isinstance(supplied["cameras"], dict) or set(supplied["cameras"]) != {"wrist"}):
+            raise ValueError("Wrist calibration file must contain only cameras.wrist settings")
+        _merge(default, supplied)
     validate(default)
     return default
 
@@ -46,6 +55,45 @@ def validate(config):
         raise ValueError("Dataset compatibility currently requires 30 Hz cameras")
     if config["cameras"]["main_depth"]:
         raise ValueError("Depth recording is not implemented in this RGB collection version")
+    cameras = config["cameras"]
+    for key in ("width", "height"):
+        if type(cameras[key]) is not int or cameras[key] <= 0:
+            raise ValueError(f"Camera {key} must be a positive integer")
+    if type(cameras["preview_scale"]) is not int or not 1 <= cameras["preview_scale"] <= 4:
+        raise ValueError("Camera preview_scale must be an integer from 1 to 4")
+    if cameras["wrist_calibration_file"] is not None and not isinstance(cameras["wrist_calibration_file"], str):
+        raise ValueError("Camera wrist_calibration_file must be a path string or null")
+    for side in ("left", "right"):
+        pose = cameras["wrist"][side]["pose_in_bracket"]
+        if pose is not None:
+            if not isinstance(pose, dict) or set(pose) != {"position_m", "quaternion_xyzw"}:
+                raise ValueError(f"Invalid {side} wrist optical pose fields")
+            for key, length in (("position_m", 3), ("quaternion_xyzw", 4)):
+                if len(pose[key]) != length or not all(math.isfinite(value) for value in pose[key]):
+                    raise ValueError(f"Invalid {side} wrist {key}")
+            if not math.isclose(sum(value*value for value in pose["quaternion_xyzw"]), 1., abs_tol=1e-5):
+                raise ValueError(f"{side} wrist optical quaternion must have unit norm")
+    head = cameras["head"]
+    if head is not None:
+        for key, size in (("position_world_m", 3), ("quaternion_xyzw", 4)):
+            if len(head[key]) != size or not all(math.isfinite(v) for v in head[key]):
+                raise ValueError(f"Head camera {key} requires {size} finite values")
+        if not math.isclose(sum(v*v for v in head["quaternion_xyzw"]), 1., abs_tol=1e-5):
+            raise ValueError("Head camera quaternion must have unit length")
+    for name, settings in (("Head", head), ("Left wrist", cameras["wrist"]["left"]),
+                           ("Right wrist", cameras["wrist"]["right"])):
+        if settings is None:
+            continue
+        intrinsics = settings["intrinsics"]
+        if not all(math.isfinite(intrinsics[key]) for key in ("fx", "fy", "cx", "cy")):
+            raise ValueError(f"{name} camera intrinsics must be finite")
+        if intrinsics["fx"] <= 0 or intrinsics["fy"] <= 0:
+            raise ValueError(f"{name} camera focal lengths must be positive")
+        if not 0 <= intrinsics["cx"] < cameras["width"] or not 0 <= intrinsics["cy"] < cameras["height"]:
+            raise ValueError(f"{name} camera principal point must lie within its image")
+        distortion = settings["distortion_coefficients"]
+        if len(distortion) not in (0, 5, 8, 12) or not all(math.isfinite(v) for v in distortion):
+            raise ValueError(f"{name} camera distortion requires 0, 5, 8 or 12 finite OpenCV coefficients")
     for key in ("input_timeout_ms", "command_timeout_ms", "engine_feedback_timeout_ms",
                 "max_clock_uncertainty_ms", "max_linear_speed_m_s",
                 "max_angular_speed_rad_s", "joint_speed_rad_s", "hand_speed_rad_s"):
@@ -59,6 +107,17 @@ def validate(config):
         raise ValueError("Box stack count must be a positive integer")
     if not math.isfinite(scene["bin_stack_pitch_m"]) or scene["bin_stack_pitch_m"] <= 0:
         raise ValueError("Box stack pitch must be finite and positive")
+    appearance = scene["appearance"]
+    for key in ("wood_linear_rgb", "frame_linear_rgb", "mat_linear_rgb", "bins_linear_rgb", "floor_linear_rgb"):
+        color = appearance[key]
+        if len(color) != 3 or not all(math.isfinite(v) and 0 <= v <= 1 for v in color):
+            raise ValueError(f"Scene {key} requires three linear RGB values in [0, 1]")
+    for key in ("table_mat", "textures"):
+        if type(appearance[key]) is not bool:
+            raise ValueError(f"Scene {key} must be a boolean")
+    for key in ("ambient_intensity", "key_intensity"):
+        if not math.isfinite(appearance[key]) or appearance[key] < 0:
+            raise ValueError(f"Scene {key} must be finite and nonnegative")
     for name in ("initial_center", "initial_rpy_deg"):
         if len(rail[name]) != 3 or not all(math.isfinite(value) for value in rail[name]):
             raise ValueError(f"Rail {name} requires three finite values")

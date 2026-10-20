@@ -11,10 +11,13 @@
 | `generated/task/` | 桌子、箱子、导轨台、工具网格及 CAD 转换清单 |
 | `generated/rail/` | 长导轨可见网格和 299 个保留孔的凸碰撞体 |
 | `generated/manifest.json` | 源文件摘要、模型身份、装配与物理参数 |
+| `textures/` | 木纹、黑色塑料基础色贴图及记录哈希和色彩空间的清单 |
 
 已删除旧夹爪、短导轨、短支架、仅作参考的整场景、未使用的 USD / STEP / URDF 变体、旧相机 CAD、旧导轨碰撞体和重复网格。原来的用户附件与项目外 CAD 目录不属于本次清理范围。
 
 `source/` 与 `generated/` 同时跟踪，以支持修改模型和直接运行。源 STL 与运行 STL 中相同的文件内容由 Git 自动共用 blob。模型中最大单文件约 48 MiB，当前直接使用普通 Git，无需 Git LFS。
+
+贴图随 Git 保存，无需访问在线材质库。它们由 `imagegen` 生成，是对真实木桌和塑料箱的视觉近似，不是现场表面扫描。`textures/manifest.json` 保存文件哈希、分辨率、sRGB 色彩空间和平均线性颜色；运行时的颜色倍率保留 `scene.appearance` 中的配色。桌面沿长轴铺设木纹，箱子使用按米定义的面投影 UV；几何、碰撞和摩擦系数不由贴图改变。`scene.appearance.textures: false` 可切回纯色材质。
 
 检查资源完整性和 Git 跟踪：
 

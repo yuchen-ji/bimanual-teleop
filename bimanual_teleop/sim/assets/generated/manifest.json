@@ -1291,7 +1291,13 @@
         0.0012793,
         0.0592937,
         -0.035071
-      ]
+      ],
+      "camera_front_normal_in_bracket": [
+        0.0,
+        0.25881904510252074,
+        0.9659258262890683
+      ],
+      "camera_optical_clearance_m": 0.002
     },
     "fixture_geometry": {
       "pin_centers_m": [
@@ -2101,6 +2107,6 @@
       90.06497550901535
     ]
   },
-  "camera_visual": "supplied wrist camera/bracket CAD; optical aim initialized towards palm, pending calibration",
+  "camera_visual": "supplied wrist camera/bracket CAD; measured optical pose from camera configuration, provisional CAD front normal as fallback",
   "robot_signature": "077cb092d43d9ecbe14283885711829edfc158589bd4843a9db51bcb931152b4"
 }

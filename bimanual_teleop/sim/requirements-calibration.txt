@@ -1,0 +1,3 @@
+# Host/local PC only, in Conda environment bimanual-teleop. GUI uses existing Matplotlib/Tk.
+opencv-python-headless==4.11.0.86
+Pillow>=10,<13

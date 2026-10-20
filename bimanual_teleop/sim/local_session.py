@@ -114,11 +114,11 @@ class LocalSession:
         self.reset_requested = True
         self.message("Reset requested; recording stopped")
 
-    def build_ui(self, frame_scene):
+    def build_ui(self, frame_scene, view_head_camera=None):
         import omni.ui as ui
         import carb.input
         import omni.appwindow
-        self.window = ui.Window("Simulation", width=330, height=235)
+        self.window = ui.Window("Simulation", width=330, height=265)
         self.window.deferred_dock_in("Property", ui.DockPolicy.CURRENT_WINDOW_IS_ACTIVE)
         with self.window.frame:
             with ui.VStack(spacing=6):
@@ -128,6 +128,8 @@ class LocalSession:
                 ui.Button("B: unnamed segment marker", clicked_fn=self.boundary)
                 ui.Button("Save and stop recording", clicked_fn=self.save)
                 ui.Button("Reset scene", clicked_fn=self.request_reset)
+                if view_head_camera is not None:
+                    ui.Button("View head camera", clicked_fn=view_head_camera)
                 ui.Button("Frame entire scene", clicked_fn=frame_scene)
         keyboard = omni.appwindow.get_default_app_window().get_keyboard()
         interface = carb.input.acquire_input_interface()

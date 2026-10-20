@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "source": "Generated with built-in image_gen; visual approximation, not measured surface scans.",
+  "textures": {
+    "wood": {
+      "file": "walnut_basecolor.png",
+      "sha256": "ff527778b86a0f3f34e7ceb8595e4ea496cdc28f62b7134108b004ee8cb91dc8",
+      "resolution": [
+        1254,
+        1254
+      ],
+      "color_space": "sRGB",
+      "mean_linear_rgb": [
+        0.10992343584426063,
+        0.059632844204752504,
+        0.031158535872435493
+      ]
+    },
+    "plastic": {
+      "file": "black_polypropylene_basecolor.png",
+      "sha256": "05cb133f8618f78a16169caba96d22d1b060afca6b6fef817b918ae4305c6e63",
+      "resolution": [
+        1254,
+        1254
+      ],
+      "color_space": "sRGB",
+      "mean_linear_rgb": [
+        0.01828677339805041,
+        0.022352224463989507,
+        0.020339811791407526
+      ]
+    }
+  }
+}

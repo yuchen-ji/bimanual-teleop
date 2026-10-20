@@ -31,14 +31,14 @@ def _mesh(stage, path, filename, collision=False, approximation="none"):
     return prim
 
 
-def _material(stage, path, color, friction=.5, metallic=0.):
+def _material(stage, path, color, friction=.5, metallic=0., roughness=.45):
     from pxr import Gf, UsdShade, UsdPhysics, Sdf
     material = UsdShade.Material.Define(stage, path)
     shader = UsdShade.Shader.Define(stage, path+"/Shader")
     shader.CreateIdAttr("UsdPreviewSurface")
     shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
     shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
-    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(.45)
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
     material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
     physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
     physics.CreateStaticFrictionAttr(friction); physics.CreateDynamicFrictionAttr(friction)
@@ -51,13 +51,88 @@ def _bind(prim, material):
     UsdShade.MaterialBindingAPI.Apply(prim.GetPrim() if hasattr(prim, "GetPrim") else prim).Bind(material)
 
 
-def _box(stage, path, position, size, material):
+def _bind_wrist_windows(stage, robot_path, tools):
+    """Make only the solid CAD front-window caps optically clear; retain collision meshes."""
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
+    from .camera_calibration import camera_window_faces
+    material = _material(stage, "/World/Materials/WristOpticalWindow", (0., 0., 0.), roughness=0.)
+    shader = stage.GetPrimAtPath("/World/Materials/WristOpticalWindow/Shader")
+    shader.CreateAttribute("inputs:opacity", Sdf.ValueTypeNames.Float).Set(0.)
+    shader.CreateAttribute("inputs:ior", Sdf.ValueTypeNames.Float).Set(1.)
+    cache = UsdGeom.XformCache()
+    for prefix in ("l", "r"):
+        bracket = stage.GetPrimAtPath(robot_path+f"/{prefix}_camera_bracket")
+        visuals = stage.GetPrimAtPath(str(bracket.GetPath())+"/visuals")
+        # URDF visual assets may be instances. Author face bindings on these two
+        # camera visual copies, leaving shared prototypes and collision assets alone.
+        for _ in range(4):
+            instances = [prim.GetPath() for prim in Usd.PrimRange(visuals) if prim.IsInstance()]
+            if not instances:
+                break
+            for path in instances:
+                stage.GetPrimAtPath(path).SetInstanceable(False)
+        parent = np.array(cache.GetLocalToWorldTransform(bracket)).T
+        selected_count = 0
+        diagnostics = []
+        for prim in Usd.PrimRange(visuals):
+            if not prim.IsA(UsdGeom.Mesh):
+                continue
+            mesh = UsdGeom.Mesh(prim)
+            if not np.all(np.asarray(mesh.GetFaceVertexCountsAttr().Get()) == 3):
+                raise RuntimeError("Wrist optical-window authoring expects the supplied triangle meshes")
+            points = np.asarray(mesh.GetPointsAttr().Get())
+            local = np.linalg.inv(parent) @ np.array(cache.GetLocalToWorldTransform(prim)).T
+            points = points @ local[:3, :3].T + local[:3, 3]
+            faces = np.asarray(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+            selected = camera_window_faces(points, faces, tools)
+            diagnostics.append({"path": str(prim.GetPath()), "bounds": [points.min(axis=0).tolist(), points.max(axis=0).tolist()], "faces": len(selected)})
+            if len(selected):
+                binding = UsdShade.MaterialBindingAPI.Apply(prim)
+                subset = binding.CreateMaterialBindSubset("OpticalWindow", selected.tolist())
+                _bind(subset, material); selected_count += len(selected)
+        if not selected_count:
+            raise RuntimeError(f"No front-window faces found for {prefix} wrist camera: {diagnostics}")
+        print(f"{prefix} wrist: {selected_count} front-window faces use the clear optical material", flush=True)
+
+
+def _bind_pin_tops(mesh, geometry, material):
+    from pxr import UsdShade
+    points = np.asarray(mesh.GetPointsAttr().Get())
+    faces = np.asarray(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+    above_shoulder = points[:, 2] > geometry["support_height_m"] + .00001
+    binding = UsdShade.MaterialBindingAPI(mesh.GetPrim())
+    for index, (center, radius) in enumerate(zip(geometry["pin_centers_m"], geometry["pin_radii_m"])):
+        # The supplied pins are slightly tilted, so their caps do not have constant Z.
+        near_axis = np.linalg.norm(points[:, :2] - np.asarray(center[:2]), axis=1) <= radius + .0001
+        candidates = np.flatnonzero(np.all((near_axis & above_shoulder)[faces], axis=1))
+        triangles = points[faces[candidates]]
+        normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
+        top_faces = candidates[normals[:, 2] > .99 * np.linalg.norm(normals, axis=1)]
+        if not len(top_faces):
+            raise ValueError(f"No top faces found for fixture locating pin {index}")
+        subset = binding.CreateMaterialBindSubset(f"PinTop_{index}", top_faces.tolist())
+        _bind(subset, material)
+
+
+def _box(stage, path, position, size, material, collision=True):
     from pxr import Gf, UsdGeom, UsdPhysics
     cube = UsdGeom.Cube.Define(stage, path)
     cube.CreateSizeAttr(1.)
     cube.AddTranslateOp().Set(Gf.Vec3d(*position)); cube.AddScaleOp().Set(Gf.Vec3f(*size))
-    UsdPhysics.CollisionAPI.Apply(cube.GetPrim()); _bind(cube, material)
+    if collision:
+        UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+    _bind(cube, material)
     return cube
+
+
+def _bind_tabletop(mesh, material):
+    """The supplied CAD has a 65 mm top above the metal frame at Z=0.665 m."""
+    from pxr import UsdShade
+    points = np.asarray(mesh.GetPointsAttr().Get())
+    faces = np.asarray(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+    top_faces = np.flatnonzero(np.all(points[faces, 2] >= .665 - 1e-5, axis=1))
+    subset = UsdShade.MaterialBindingAPI(mesh.GetPrim()).CreateMaterialBindSubset("WoodTop", top_faces.tolist())
+    _bind(subset, material)
 
 
 def look_at(position, target, up=(0, 0, 1)):
@@ -145,24 +220,52 @@ def build_scene(world, config, model, capture=True):
                 decomposition.CreateVoxelResolutionAttr(500000)
             if hand:
                 UsdShade.MaterialBindingAPI.Apply(prim).Bind(fingers, materialPurpose="physics")
-    world.scene.add_default_ground_plane()
+    appearance = config["scene"]["appearance"]
+    # A plain indoor floor avoids the blue grid and outdoor light rig in the default asset.
+    floor = world.scene.add_ground_plane(size=20., color=np.asarray(appearance["floor_linear_rgb"]))
+    floor_material = _material(stage, "/World/Materials/Floor", appearance["floor_linear_rgb"], roughness=.8)
+    _bind(floor.prim, floor_material)
     manifest = json.loads((ROOT / "assets/generated/manifest.json").read_text())
+    if any(config["cameras"]["wrist"][side]["pose_in_bracket"] is not None for side in ("left", "right")):
+        _bind_wrist_windows(stage, robot_path, manifest["cad"]["tool_stack"])
     geometry = manifest["fixture_geometry"]
-    matte = _material(stage, "/World/Materials/Table", (.43, .36, .25))
+    matte = _material(stage, "/World/Materials/Table", appearance["wood_linear_rgb"], roughness=.6)
+    frame_material = _material(stage, "/World/Materials/TableFrame", appearance["frame_linear_rgb"], metallic=.3, roughness=.6)
+    mat_material = _material(stage, "/World/Materials/TableMat", appearance["mat_linear_rgb"], roughness=.9)
     metal = _material(stage, "/World/Materials/Rail", (.55, .58, .62), config["rail"]["friction"], .75)
-    fixture_material = _material(stage, "/World/Materials/Fixture", (.2, .23, .27), config["rail"]["friction"], .5)
-    bin_material = _material(stage, "/World/Materials/Bins", (.12, .28, .48))
+    fixture_material = _material(stage, "/World/Materials/Fixture", (.05, .45, .55), config["rail"]["friction"], .5)
+    pin_top_material = _material(stage, "/World/Materials/PinTops", (.005, .005, .005), config["rail"]["friction"])
+    camera_housing_material = _material(stage, "/World/Materials/CameraHousing", (.2, .23, .27), config["rail"]["friction"], .5)
+    bin_material = _material(stage, "/World/Materials/Bins", appearance["bins_linear_rgb"], roughness=.7)
+    from .materials import connect_basecolor, planar_uvs
+    if appearance["textures"]:
+        connect_basecolor(stage, matte, "wood", appearance["wood_linear_rgb"])
+        connect_basecolor(stage, bin_material, "plastic", appearance["bins_linear_rgb"])
     cad_scene = config["scene"]["asset_profile"] == "rail_task_cad_v1"
     if cad_scene:
         table = UsdGeom.Xform.Define(stage, "/World/Table")
         table.AddTranslateOp().Set(Gf.Vec3d(*config["scene"]["table_center"]))
-        _bind(_mesh(stage, "/World/Table/Mesh", ROOT / "assets/generated/task/table.obj", True), matte)
+        table_mesh = _mesh(stage, "/World/Table/Mesh", ROOT / "assets/generated/task/table.obj", True)
+        if appearance["textures"]:
+            planar_uvs(table_mesh, (.67, 1.))
+        _bind(table_mesh, frame_material)
+        _bind_tabletop(table_mesh, matte)
+        if appearance["table_mat"]:
+            # Appearance only: this thin overlay does not add a collider or change contact heights.
+            near = config["scene"]["fixture_origin"][0] + .055
+            far = config["scene"]["table_center"][0] + config["scene"]["table_size"][0]/2 - .02
+            if far > near:
+                center = config["scene"]["table_center"]
+                _box(stage, "/World/Table/Mat", [(near+far)/2-center[0], 0, .7306],
+                     [far-near, config["scene"]["table_size"][1]*.77, .001], mat_material, collision=False)
     else:
         _box(stage, "/World/Table", config["scene"]["table_center"], config["scene"]["table_size"], matte)
     fixture = UsdGeom.Xform.Define(stage, "/World/Fixture")
     fixture.AddTranslateOp().Set(Gf.Vec3d(*config["scene"]["fixture_origin"]))
     reduced = manifest.get("cad", {}).get("models", {}).get("fixture", {}).get("collision") if cad_scene else None
-    _bind(_mesh(stage, "/World/Fixture/Mesh", ROOT / "assets/generated/task/fixture.obj", collision=not bool(reduced)), fixture_material)
+    fixture_mesh = _mesh(stage, "/World/Fixture/Mesh", ROOT / "assets/generated/task/fixture.obj", collision=not bool(reduced))
+    _bind(fixture_mesh, fixture_material)
+    _bind_pin_tops(fixture_mesh, geometry, pin_top_material)
     if reduced:
         collider = _mesh(stage, "/World/Fixture/Collision", ROOT / "assets/generated" / reduced["mesh"], collision=True)
         collider.CreateVisibilityAttr("invisible")
@@ -177,7 +280,10 @@ def build_scene(world, config, model, capture=True):
                 position = center.copy()
                 position[2] -= (config["scene"]["bin_stack_count"]-1-layer)*config["scene"]["bin_stack_pitch_m"]
                 box.AddTranslateOp().Set(Gf.Vec3d(*position))
-                _bind(_mesh(stage, base+f"/Layer_{layer+1}/Mesh", ROOT / "assets/generated/task/bins.obj", True), bin_material)
+                bin_mesh = _mesh(stage, base+f"/Layer_{layer+1}/Mesh", ROOT / "assets/generated/task/bins.obj", True)
+                if appearance["textures"]:
+                    planar_uvs(bin_mesh, (.18, .18))
+                _bind(bin_mesh, bin_material)
             continue
         _box(stage, base+"/Floor", center+[0, 0, wall/2], [length+2*wall, width+2*wall, wall], bin_material)
         for sign in (-1, 1):
@@ -197,63 +303,55 @@ def build_scene(world, config, model, capture=True):
     for index, name in enumerate(manifest["rail"]["colliders"]):
         collider = _mesh(stage, f"/World/Rail/Collision_{index}", ROOT / "assets/generated/rail" / name, True, "convexHull")
         collider.CreateVisibilityAttr("invisible"); _bind(collider, metal)
-    dome = UsdLux.DomeLight.Define(stage, "/World/Lighting/Dome"); dome.CreateIntensityAttr(900.)
-    sun = UsdLux.DistantLight.Define(stage, "/World/Lighting/Sun"); sun.CreateIntensityAttr(2200.)
-    sun.AddRotateXYZOp().Set(Gf.Vec3f(-35, 20, 25))
+    dome = UsdLux.DomeLight.Define(stage, "/World/Lighting/Dome")
+    dome.CreateIntensityAttr(appearance["ambient_intensity"])
+    dome.CreateColorAttr(Gf.Vec3f(1., .97, .93))
+    key = UsdLux.DistantLight.Define(stage, "/World/Lighting/Key")
+    key.CreateIntensityAttr(appearance["key_intensity"])
+    key.CreateAngleAttr(12.)
+    key.AddRotateXYZOp().Set(Gf.Vec3f(-15, 10, 25))
     width, height = config["cameras"]["width"], config["cameras"]["height"]
     zero = np.zeros(54)
     camera_paths, annotators = [], []
     for index in range(3):
         if index == 0:
             parent = robot_path + "/Head_depth_Link"
-            position_world = model.link_pose("Head depth_Link", zero)[:3, 3]
-            target_world = np.array(config["scene"]["fixture_origin"])+[0, 0, .08]
             parent_pose = model.link_pose("Head depth_Link", zero)
-            position = np.linalg.inv(parent_pose) @ np.r_[position_world, 1.]
-            world_orientation = Rotation.from_quat(look_at(position_world, target_world)).as_matrix()
-            orientation = Rotation.from_matrix(parent_pose[:3, :3].T @ world_orientation).as_quat()
+            if config["cameras"]["head"] is not None:
+                from .camera_calibration import head_camera_local_pose
+                position, orientation = head_camera_local_pose(config["cameras"]["head"], parent_pose)
+            else:
+                position_world = parent_pose[:3, 3]
+                target_world = np.array(config["scene"]["fixture_origin"])+[0, 0, .08]
+                position = np.zeros(3)
+                world_orientation = Rotation.from_quat(look_at(position_world, target_world)).as_matrix()
+                orientation = Rotation.from_matrix(parent_pose[:3, :3].T @ world_orientation).as_quat()
         else:
-            side, prefix = ("left", "l") if index == 1 else ("right", "r")
-            parent_link = f"{prefix}_camera_bracket" if cad_scene else f"{prefix}_mount"
+            prefix = "l" if index == 1 else "r"
+            parent_link = f"{prefix}_camera_bracket"
             parent = robot_path + "/" + parent_link
-            mount_pose = model.link_pose(parent_link, zero)
-            tips = [model.link_pose(f"{prefix}_{finger}_tip", zero)[:3, 3]
-                    for finger in ("thumb", "index_finger", "middle_finger", "ring_finger", "pinky")]
-            # Generate one rigid mounting transform from open-hand landmarks.
-            tip_center = (np.linalg.inv(mount_pose) @ np.r_[np.mean(tips, axis=0), 1])[:3]
-            along = tip_center / max(np.linalg.norm(tip_center), 1e-8)
-            normal = np.cross(along, np.array([1., 0., 0.]))
-            if np.linalg.norm(normal) < .1:
-                normal = np.cross(along, np.array([0., 1., 0.]))
-            normal /= np.linalg.norm(normal)
-            # Choose the palmar side from positive finger flexion, avoiding
-            # an arbitrary camera on the back of a mirrored hand.
-            curled = zero.copy()
-            for finger in ("index_finger", "middle_finger", "ring_finger", "pinky"):
-                curled[model.names.index(f"{prefix}_{finger}_mcp_flex")] = .3
-            curled_tips = [model.link_pose(f"{prefix}_{finger}_tip", curled)[:3, 3]
-                           for finger in ("index_finger", "middle_finger", "ring_finger", "pinky")]
-            open_tips = [model.link_pose(f"{prefix}_{finger}_tip", zero)[:3, 3]
-                         for finger in ("index_finger", "middle_finger", "ring_finger", "pinky")]
-            curl_direction = mount_pose[:3, :3].T @ (np.mean(curled_tips, axis=0)-np.mean(open_tips, axis=0))
-            if np.dot(normal, curl_direction) < 0:
-                normal = -normal
-            position = (np.array(manifest["cad"]["tool_stack"]["camera_position_in_bracket_m"])
-                        if cad_scene else tip_center*.5 + normal*.12 - along*.06)
-            orientation = look_at(position, tip_center*.65, up=along)
+            from .camera_calibration import wrist_camera_local_pose
+            side = "left" if index == 1 else "right"
+            position, orientation = wrist_camera_local_pose(manifest["cad"]["tool_stack"], config["cameras"]["wrist"][side]["pose_in_bracket"])
         if not stage.GetPrimAtPath(parent).IsValid():
             raise RuntimeError(f"Imported camera mounting link was not found: {parent}")
         path = parent+f"/sim_camera_{index}"
         camera = UsdGeom.Camera.Define(stage, path)
         camera.AddTranslateOp().Set(Gf.Vec3d(*position[:3]))
         camera.AddOrientOp().Set(Gf.Quatf(float(orientation[3]), Gf.Vec3f(*orientation[:3])))
-        focal_length = 20.
-        aperture = 2*focal_length*np.tan(np.deg2rad(config["cameras"]["horizontal_fov_deg"])/2)
-        camera.CreateFocalLengthAttr(focal_length)
-        camera.CreateHorizontalApertureAttr(float(aperture)); camera.CreateVerticalApertureAttr(float(aperture*height/width))
+        camera.CreateFStopAttr(0.)  # No depth-of-field blur in the learning cameras.
+        lens = (config["cameras"]["head"] if index == 0 else config["cameras"]["wrist"]["left" if index == 1 else "right"])
+        if lens is not None:
+            from .camera_calibration import set_pinhole_intrinsics
+            set_pinhole_intrinsics(camera, width, height, lens["intrinsics"], lens["distortion_coefficients"])
+        else:
+            focal_length = 20.
+            aperture = 2*focal_length*np.tan(np.deg2rad(config["cameras"]["horizontal_fov_deg"])/2)
+            camera.CreateFocalLengthAttr(focal_length)
+            camera.CreateHorizontalApertureAttr(float(aperture)); camera.CreateVerticalApertureAttr(float(aperture*height/width))
         camera.CreateClippingRangeAttr(Gf.Vec2f(.01, 10.))
         if index == 0 or not cad_scene:
-            _box(stage, path+"/Housing", (0, 0, .014), (.09, .025, .025), fixture_material)
+            _box(stage, path+"/Housing", (0, 0, .014), (.09, .025, .025), camera_housing_material)
         camera_paths.append(path)
         if capture:
             product = rep.create.render_product(path, (width, height))

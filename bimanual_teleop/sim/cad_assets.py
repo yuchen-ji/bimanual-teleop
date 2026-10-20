@@ -311,7 +311,9 @@ def prepare_steps(source):
     result["tool_stack"] = {"sensor_length_m": .040, "bracket_plate_thickness_m": .002,
                             "sensor_mass_kg": .2304, "bracket_camera_mass_kg": .20,
                             "mass_is_assumption": True,
-                            "camera_position_in_bracket_m": [.0012793, .0592937, -.035071]}
+                            "camera_position_in_bracket_m": [.0012793, .0592937, -.035071],
+                            "camera_front_normal_in_bracket": [0., .25881904510252074, .9659258262890683],
+                            "camera_optical_clearance_m": .002}
     (generated / "cad_manifest.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return result
 
@@ -386,7 +388,7 @@ def install(cad, config=None):
     install_tool_stack(generated / "robot.urdf", cad, config)
     manifest.update(cad=cad, rail=cad["models"]["rail"], fixture_geometry=cad["fixture_geometry"],
                     robot_urdf_sha256=digest(generated / "robot.urdf"),
-                    camera_visual="supplied wrist camera/bracket CAD; optical aim initialized towards palm, pending calibration")
+                    camera_visual="supplied wrist camera/bracket CAD; measured optical pose from camera configuration, provisional CAD front normal as fallback")
     sources = json.dumps({"sources": cad["sources"], "models": cad["models"]}, sort_keys=True)
     manifest["robot_signature"] = hashlib.sha256((manifest["robot_urdf_sha256"]+manifest["robot"]["sha256"]+manifest["hands"]["sha256"]+sources).encode()).hexdigest()
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2))

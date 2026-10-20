@@ -69,12 +69,16 @@ def required_files():
 
     meshes(manifest["cad"]["models"])
     result.update(generated / "rail" / name for name in manifest["rail"]["colliders"])
+    texture_manifest = ROOT / "assets/textures/manifest.json"
+    textures = json.loads(texture_manifest.read_text())["textures"]
+    result.add(texture_manifest)
+    result.update(_inside_assets(texture_manifest.parent / item["file"]) for item in textures.values())
     return {_inside_assets(path) for path in result}
 
 
 def audit(*, check_git=False):
     expected = required_files()
-    actual = {path.resolve() for folder in ("source", "generated")
+    actual = {path.resolve() for folder in ("source", "generated", "textures")
               for path in (ROOT / "assets" / folder).rglob("*") if path.is_file()}
     missing = sorted(str(path.relative_to(ROOT)) for path in expected if not path.is_file())
     unused = sorted(str(path.relative_to(ROOT)) for path in actual-expected)

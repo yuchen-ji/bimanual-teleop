@@ -18,7 +18,7 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
     from isaacsim import SimulationApp
     app = SimulationApp({"headless": not gui, "hide_ui": not gui, "renderer": "RaytracedLighting",
                          "width": 1280 if gui else 640, "height": 800 if gui else 480,
-                         "anti_aliasing": 2, "disable_viewport_updates": not gui, "limit_cpu_threads": 8})
+                         "anti_aliasing": 1, "disable_viewport_updates": not gui, "limit_cpu_threads": 8})
     import zmq
     from isaacsim.core.api import World
     from isaacsim.core.utils.types import ArticulationAction
@@ -27,6 +27,8 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
     import omni.replicator.core as rep
     import carb
     carb.settings.get_settings().set_int("/persistent/physics/numThreads", 0)
+    from .rendering import configure_camera_rendering
+    configure_camera_rendering()
     from .scene import build_scene, rgb_frames
     rep.orchestrator.set_capture_on_play(False)
 
@@ -49,13 +51,26 @@ def run(config, endpoint, *, gui=False, standalone=False, record=False, trajecto
             local = LocalSession(config, model, record, codec, trajectory, gui)
         if gui:
             from isaacsim.core.utils.viewports import set_camera_view
+            from omni.kit.viewport.utility import get_active_viewport
 
             def frame_scene():
+                viewport = get_active_viewport()
+                if viewport is not None:
+                    viewport.camera_path = "/OmniverseKit_Persp"
+                    viewport.fill_frame = True
                 set_camera_view(eye=np.array([2.5, -2.5, 2.0]), target=np.array([.45, 0., .72]))
+
+            def view_head_camera():
+                viewport = get_active_viewport()
+                if viewport is not None:
+                    viewport.camera_path = camera_paths[0]
+                    viewport.fill_frame = False
+                    scale = config["cameras"]["preview_scale"]
+                    viewport.resolution = (config["cameras"]["width"]*scale, config["cameras"]["height"]*scale)
 
             frame_scene()
             if local:
-                local.build_ui(frame_scene)
+                local.build_ui(frame_scene, view_head_camera)
         rail = world.scene.add(SingleRigidPrim("/World/Rail", name="rail"))
         contact_views = []
         for prefix in ("l", "r"):
