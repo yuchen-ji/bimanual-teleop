@@ -23,6 +23,7 @@ def run(config, output):
         import omni.replicator.core as rep
         import carb
         from isaacsim.core.api import World
+        from isaacsim.core.utils.types import ArticulationAction
         from pxr import Gf, Sdf, Usd, UsdGeom
         from PIL import Image
         from .kinematics import RobotModel
@@ -44,7 +45,21 @@ def run(config, output):
         indices = np.array([robot.get_dof_index(name) for name in model.names], dtype=np.int32)
         ready = np.r_[np.deg2rad(config["robot"]["ready_deg"]["left"]),
                       np.deg2rad(config["robot"]["ready_deg"]["right"]), np.zeros(40)]
-        robot.set_joint_positions(np.clip(ready, model.lower, model.upper), joint_indices=indices)
+        controller = robot.get_articulation_controller()
+
+        def show_pose(positions):
+            positions = np.clip(positions, model.lower, model.upper)
+            controller.apply_action(ArticulationAction(joint_positions=positions, joint_indices=indices))
+            robot.set_joint_positions(positions, joint_indices=indices)
+            robot.set_joint_velocities(np.zeros(54), joint_indices=indices)
+            # Frozen Replicator renders do not refresh PhysX/Fabric transforms.
+            # Advance one physics tick before evaluating the displayed pose.
+            world.step(render=False)
+
+        show_pose(ready)
+        report["ready_joint_positions_rad"] = robot.get_joint_positions(joint_indices=indices).tolist()
+        report["ready_joint_error_rad"] = float(np.max(np.abs(np.asarray(report["ready_joint_positions_rad"])-ready)))
+        assert report["ready_joint_error_rad"] < .01
 
         def capture():
             rep.orchestrator.step(rt_subframes=4, delta_time=0., pause_timeline=False)
@@ -58,7 +73,7 @@ def run(config, output):
         assert image.std() > 2
         for index, frame in enumerate(rgb_frames(annotators)[1:], 1):
             Image.fromarray(frame).save(output / f"wrist_camera_{index}_ready.png")
-        from .camera_calibration import wrist_camera_local_pose
+        from .camera_geometry import wrist_camera_local_pose
         import trimesh
         manifest = json.loads((ROOT / "assets/generated/manifest.json").read_text())
         report["wrist_optics"] = {}
@@ -75,12 +90,12 @@ def run(config, output):
             report["wrist_optics"][side] = {"source": "measured" if measured is not None else "provisional_cad",
                 "position_in_bracket_m": optical_position.tolist(), "forward_in_bracket": optical_forward.tolist(),
                 "max_housing_forward_m": margins}
-        robot.set_joint_positions(np.clip(np.zeros(54), model.lower, model.upper), joint_indices=indices)
+        show_pose(np.zeros(54))
         for _ in range(3):
             capture()
         for index, frame in enumerate(rgb_frames(annotators)[1:], 1):
             Image.fromarray(frame).save(output / f"wrist_camera_{index}_zero.png")
-        robot.set_joint_positions(np.clip(ready, model.lower, model.upper), joint_indices=indices)
+        show_pose(ready)
         for _ in range(3):
             capture()
         actual_settings = carb.settings.get_settings()

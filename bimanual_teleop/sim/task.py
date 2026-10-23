@@ -8,6 +8,7 @@ from bimanual_teleop.sim._dependencies import np
 from bimanual_teleop.sim._dependencies import Rotation
 
 from .kinematics import pose_matrix
+from .bin_geometry import bin_geometry
 
 
 class TaskMonitor:
@@ -38,20 +39,21 @@ class TaskMonitor:
         radial = min(float(np.linalg.norm(bottoms[order, :2]-pins[:, :2], axis=1).max()) for order in ([0, 1], [1, 0]))
         angle = float(np.arccos(np.clip(abs(rotation[2, 2]), 0, 1)))
         bottom_z = float(bottoms[:, 2].mean())
-        gap = abs(bottom_z-(fixture[2]+self.geometry["support_height_m"]))
-        insertion = fixture[2]+self.geometry["pin_top_height_m"]-float(bottoms[:, 2].max())
+        gap = float(abs(bottom_z-(fixture[2]+self.geometry["support_height_m"])))
+        insertion = float(fixture[2]+self.geometry["pin_top_height_m"]-bottoms[:, 2].max())
         radii = self.geometry.get("pin_radii_m")
         tolerance = min(.0015, rail["hole_diameter_m"]/2-max(radii)-.0001) if radii else .0015
-        seated = radial <= tolerance and angle <= np.deg2rad(1 if radii else 3) and gap <= .001 and insertion >= .005 and speed <= .01 and released
+        seated = bool(radial <= tolerance and angle <= np.deg2rad(1 if radii else 3) and gap <= .001 and insertion >= .005 and speed <= .01 and released)
         self.fixture_since = (stamp if self.fixture_since is None else self.fixture_since) if seated else None
         if self.fixture_since is not None and stamp-self.fixture_since >= 1:
             self.fixture_completed = True
         corners = np.array(list(itertools.product(*[(-size/2, size/2) for size in rail["size_m"]]))) @ rotation.T + position
         bin_origin = np.asarray(self.config["scene"]["bin_centers"][1])
         size = np.asarray(self.config["scene"]["bin_inner_size"])
+        crate = bin_geometry(self.config["scene"])
         inside = bool(np.all(np.abs(corners[:, :2]-bin_origin[:2]) <= size[:2]/2-.001)
-                      and corners[:, 2].min() >= bin_origin[2]+self.config["scene"]["bin_wall"]-.001
-                      and corners[:, 2].max() <= bin_origin[2]+size[2]+.001)
+                      and corners[:, 2].min() >= bin_origin[2]+crate["floor_height_m"]-.001
+                      and corners[:, 2].max() <= bin_origin[2]+crate["rim_height_m"]+.001)
         finished = inside and released and speed <= .01 and self.fixture_completed
         self.bin_since = (stamp if self.bin_since is None else self.bin_since) if finished else None
         return {"pin_error_m": radial, "axis_error_rad": angle, "support_gap_m": gap, "insertion_depth_m": insertion,

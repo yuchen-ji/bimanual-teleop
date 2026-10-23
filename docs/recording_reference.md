@@ -22,7 +22,7 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 
 | 字段 | 含义 |
 | --- | --- |
-| `cameras` | 三台相机序列号，依次为 `camera_0` 主视角、`camera_1` 机器人左臂、`camera_2` 机器人右臂；主视角 D435 是时间基准 |
+| `cameras` | 三台相机序列号，依次为 `camera_0` 主视角、`camera_1` 机器人左臂、`camera_2` 机器人右臂；主视角（第三视角）D436 是时间基准 |
 | `main_depth` | 是否采集 `camera_0` 深度，默认 `true` |
 | `state_hz` | 实测状态的记录频率上限，默认 200；不影响控制和保护 |
 | `output_dir` | 输出根目录，默认 `recordings`，相对启动目录 |
@@ -35,7 +35,7 @@ convert_recording.py             ->  datasets/<name>.zarr，默认 repair 模式
 
 | 图像编号 | 安装位置（按机器人自身左右） | 序列号 | RGB 旋转 |
 | --- | --- | --- | --- |
-| `camera_0` | 主视角 D435 | `348122072137` | 0° |
+| `camera_0` | 主视角（第三视角）D436 | `348122072137` | 0° |
 | `camera_1` | 左臂 D436 | `408322072104` | 180° |
 | `camera_2` | 右臂 D436 | `408322070938` | 0° |
 

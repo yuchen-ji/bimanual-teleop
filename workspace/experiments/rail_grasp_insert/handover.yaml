@@ -1,0 +1,850 @@
+# Normal-start physical extraction, handover, insertion, release and seating verified on 2026-10-23.
+simulation:
+  rail:
+    mass_kg: 0.7642
+    mass_is_assumption: false
+    finger_friction: 1.2
+    initial_center:
+    - 0.7295
+    - 0.56
+    - 0.764
+    initial_rpy_deg:
+    - 0
+    - -21
+    - 180
+task:
+  settle_s: 1.0
+  settle_timeout_s: 8.0
+  stable_linear_speed_m_s: 0.005
+  stable_angular_speed_rad_s: 0.04
+  stability_filter_s: 0.1
+  stage_timeout_s: 30.0
+  linear_speed_m_s: 0.08
+  angular_speed_rad_s: 0.5
+  hand_speed_rad_s: 0.6
+  hand_stiffness:
+  - 8.0
+  - 8.0
+  - 4.0
+  - 3.2
+  hand_damping:
+  - 0.15
+  - 0.15
+  - 0.09
+  - 0.09
+  insertion_speed_m_s: 0.002
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.025
+  lift_m: 0.04
+  lift_hold_s: 1.0
+  clearance_z_m: 1.04
+  clearance_center_xy_m:
+  - 0.57
+  - 0.38
+  transfer_center_m:
+  - 0.53
+  - 0.18
+  - 1.0
+  joint_limit_margin_rad: 0.0872665
+  max_arm_tracking_error_rad: 0.25
+  arm_tracking_timeout_s: 0.25
+  level_tracking_tolerance_rad: 0.2
+  level_hold_s: 1.0
+  release_clearance_m: 0.035
+  preinsert_height_m: 0.025
+  retreat_m: 0.1
+  retreat_direction_in_rail:
+  - 0
+  - 1
+  - 0.4
+  grip_slip_m: 0.008
+  loading_grip_slip_m: 0.02
+  grip_slip_rad: 0.25
+  finger_contact_min_n: 2.0
+  environment_force_limit_n: 5.0
+  support_gap_tolerance_m: 0.001
+  insertion_depth_min_m: 0.005
+  seated_hold_s: 1.0
+  reverse_pin_order: false
+  pregrasp_offset_world_m:
+  - -0.1
+  - 0
+  - 0.1
+  approach_offset_in_rail_m:
+  - 0
+  - 0.1
+  - 0.1
+  approach_waypoints_in_rail_m:
+  - - 0
+    - 0.045
+    - 0.04
+  - - 0
+    - 0.035
+    - 0.015
+  - - 0
+    - 0
+    - 0
+  rail_in_flange_xyz_m:
+  - 0.03
+  - 0.058
+  - 0.17
+  rail_in_flange_rpy_deg:
+  - -161.118279
+  - 41.641143
+  - -62.763687
+  open_hand_rad:
+  - 0.568
+  - -0.614
+  - 0.739
+  - 0.582
+  - -0.128164
+  - -0.282147
+  - 1.382942
+  - 1.063861
+  - 0.064306
+  - -0.583753
+  - 1.147393
+  - 0.878914
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  wrap_hand_rad:
+  - 0.568
+  - -0.614
+  - 0.739
+  - 0.582
+  - -0.128164
+  - -0.282147
+  - 1.382942
+  - 1.063861
+  - 0.064306
+  - -0.583753
+  - 1.147393
+  - 0.878914
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  closed_hand_rad:
+  - 0.741
+  - -0.047
+  - 0.479
+  - 0.226
+  - 0.481191
+  - -0.404745
+  - 1.28487
+  - 0.869638
+  - 0.661781
+  - -0.433491
+  - 1.034494
+  - 0.634995
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  - 1.5
+  - 0.5
+  - 1.9
+  - 1.2
+  strategy: bimanual_handover
+  demo_provenance:
+    source_episode: recordings/rail_place3/episode_000010
+    manifest_sha256: 6b150abd9207ff38b2e0ed92b2c46297a0fa2636173b94029c82531906aee181
+    source_model_sha256: ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52
+    source_demo_id: null
+    camera_clock_origin_ns: 7581778988319
+    joint_order:
+    - Joint1_L
+    - Joint2_L
+    - Joint3_L
+    - Joint4_L
+    - Joint5_L
+    - Joint6_L
+    - Joint7_L
+    - Joint1_R
+    - Joint2_R
+    - Joint3_R
+    - Joint4_R
+    - Joint5_R
+    - Joint6_R
+    - Joint7_R
+    - l_thumb_cmc_flex
+    - l_thumb_cmc_abd
+    - l_thumb_mcp
+    - l_thumb_ip
+    - l_index_finger_mcp_flex
+    - l_index_finger_mcp_abd
+    - l_index_finger_pip
+    - l_index_finger_dip
+    - l_middle_finger_mcp_flex
+    - l_middle_finger_mcp_abd
+    - l_middle_finger_pip
+    - l_middle_finger_dip
+    - l_ring_finger_mcp_flex
+    - l_ring_finger_mcp_abd
+    - l_ring_finger_pip
+    - l_ring_finger_dip
+    - l_pinky_mcp_flex
+    - l_pinky_mcp_abd
+    - l_pinky_pip
+    - l_pinky_dip
+    - r_thumb_cmc_flex
+    - r_thumb_cmc_abd
+    - r_thumb_mcp
+    - r_thumb_ip
+    - r_index_finger_mcp_flex
+    - r_index_finger_mcp_abd
+    - r_index_finger_pip
+    - r_index_finger_dip
+    - r_middle_finger_mcp_flex
+    - r_middle_finger_mcp_abd
+    - r_middle_finger_pip
+    - r_middle_finger_dip
+    - r_ring_finger_mcp_flex
+    - r_ring_finger_mcp_abd
+    - r_ring_finger_pip
+    - r_ring_finger_dip
+    - r_pinky_mcp_flex
+    - r_pinky_mcp_abd
+    - r_pinky_pip
+    - r_pinky_dip
+    angles: rad
+    sampling_window_s: 0.15
+  arm_reference_deg:
+    left:
+      ready:
+      - 31.01213
+      - -60.55814
+      - -33.80616
+      - -51.9672
+      - 30.9633
+      - 11.19639
+      - 11.14311
+      left_open:
+      - 37.82893
+      - -31.68283
+      - -18.98146
+      - -64.77137
+      - 20.64067
+      - 27.98121
+      - -13.667
+      left_grasp:
+      - 44.35326
+      - -41.95552
+      - -29.00024
+      - -47.48256
+      - 20.68932
+      - 26.44287
+      - -2.47704
+      left_carry:
+      - 63.85321
+      - -31.45961
+      - -55.87008
+      - -92.44061
+      - 23.10985
+      - -10.12989
+      - -5.87635
+      right_open:
+      - 63.85321
+      - -31.45961
+      - -55.87008
+      - -92.44061
+      - 23.10985
+      - -10.12989
+      - -5.87635
+      two_hands:
+      - 49.62262
+      - -31.6097
+      - -43.56886
+      - -93.66454
+      - 2.29441
+      - -11.64282
+      - -17.94643
+      right_grasp:
+      - 50.63109
+      - -43.09045
+      - -28.32136
+      - -88.69196
+      - 39.34595
+      - 26.9703
+      - 10.38794
+      seated:
+      - 64.60227
+      - -40.67712
+      - -25.22879
+      - -84.009
+      - 32.39172
+      - 24.30357
+      - 32.0229
+      release:
+      - 57.62189
+      - -25.79212
+      - -28.37035
+      - -97.57484
+      - 21.91122
+      - 11.75716
+      - 27.32421
+    right:
+      ready:
+      - -30.39324
+      - -59.66865
+      - 34.68373
+      - -51.65282
+      - -29.53873
+      - 12.13621
+      - -4.07238
+      left_open:
+      - -33.91791
+      - -52.96823
+      - 37.16678
+      - -56.85216
+      - -28.62732
+      - 12.16498
+      - -6.9945
+      left_grasp:
+      - -36.33806
+      - -51.28113
+      - 37.18153
+      - -60.16818
+      - -28.14238
+      - 12.02754
+      - -7.74395
+      left_carry:
+      - -43.1277
+      - -38.84462
+      - 32.11045
+      - -83.50947
+      - -33.22381
+      - 0.28917
+      - -12.41535
+      right_open:
+      - -43.1277
+      - -38.84462
+      - 32.11045
+      - -83.50947
+      - -33.22381
+      - 0.28917
+      - -12.41535
+      two_hands:
+      - -47.1011
+      - -36.59389
+      - 29.52625
+      - -86.11843
+      - -37.7152
+      - 2.74276
+      - -23.97546
+      right_grasp:
+      - -55.52966
+      - -41.55372
+      - 36.576
+      - -80.63271
+      - -23.92548
+      - 9.50469
+      - -30.93108
+      seated:
+      - -64.86783
+      - -41.275
+      - 31.91299
+      - -80.21211
+      - -26.85948
+      - 10.99076
+      - -31.84028
+      release:
+      - -57.084
+      - -29.91461
+      - 32.2557
+      - -97.46495
+      - -20.47038
+      - 15.3802
+      - -16.25429
+  hand_reference_rad:
+    left:
+      open:
+      - 0.2732875347137451
+      - -0.20792287588119507
+      - 0.28455716371536255
+      - 0.3560786247253418
+      - 0.23959052562713623
+      - 0.38240134716033936
+      - 0.033022940158843994
+      - 0.8631923198699951
+      - 0.3316776752471924
+      - 0.3553101420402527
+      - 0.4266849160194397
+      - 0.6814162731170654
+      - 0.6021822094917297
+      - 0.23842352628707886
+      - 0.20430636405944824
+      - 0.5940393209457397
+      - 0.6534754633903503
+      - 0.16971462965011597
+      - 0.618325412273407
+      - 0.1636573076248169
+      closed:
+      - 0.29265260696411133
+      - -0.38895702362060547
+      - 0.3945690393447876
+      - 0.3683519959449768
+      - 0.623014531135559
+      - -0.169035781621933
+      - 1.337385654449463
+      - 0.6667438745498657
+      - 1.1373558044433594
+      - -0.33766940236091614
+      - 1.2029781341552734
+      - 0.6921444535255432
+      - 1.3338913917541504
+      - -0.27596601843833923
+      - 1.167883038520813
+      - 0.5727541446685791
+      - 1.3210484981536865
+      - -0.21518871188163757
+      - 1.3037344217300415
+      - 0.5809540748596191
+    right:
+      open:
+      - 0.28368985652923584
+      - -0.18887627124786377
+      - 0.007154583930969238
+      - 0.013560175895690918
+      - -0.00882411003112793
+      - 0.10541734099388123
+      - 0.39500463008880615
+      - 0.5094546675682068
+      - 0.24701738357543945
+      - 0.015688449144363403
+      - 0.1265459656715393
+      - 0.3519479036331177
+      - 0.22075092792510986
+      - -0.0650956928730011
+      - 0.3095719814300537
+      - 0.12204968929290771
+      - 0.06004810333251953
+      - -0.032166749238967896
+      - 0.6007006168365479
+      - 0.04807394742965698
+      closed:
+      - 0.23963284492492676
+      - -1.0167948603630066
+      - 1.1253094673156738
+      - 0.012649357318878174
+      - 1.137922763824463
+      - -0.37752221524715424
+      - 1.3372294902801514
+      - 0.5460507869720459
+      - 1.33881854057312
+      - -0.2045576274394989
+      - 1.0693055391311646
+      - 0.7876965403556824
+      - 1.3940049409866333
+      - -0.14668092131614685
+      - 1.2522034645080566
+      - 0.7817105054855347
+      - 1.337872862815857
+      - 0.04645201563835144
+      - 1.3771331310272217
+      - 0.7287780046463013
+  left_grasp_axis_m: 0.167
+  right_grasp_axis_m: 0.0
+  handover_center_m:
+  - 0.55
+  - 0.03
+  - 1.1
+  handover_rpy_deg:
+  - 0
+  - -50
+  - 135
+  left_clearance_center_m:
+  - 0.59
+  - 0.53
+  - 1.1
+  handover_hold_s: 0.5
+  left_retreat_in_rail_m:
+  - -0.12
+  - 0.0
+  - 0.1
+  cartesian_approach_m: 0.06
+  left_cartesian_approach_m: 0.1
+  grasp_contact_min_n: 0.5
+  left_grasp_min_support_fingers: 3
+  left_adaptive_closing: false
+  right_adaptive_closing: false
+  closing_finger_force_n: 2.5
+  closing_thumb_force_max_n: 5.0
+  carry_contact_loss_s: 0.15
+  posture_weight: 0.025
+  wrap_tip_yz_m:
+    thumb:
+    - 0.017
+    - 0.0
+    fingers:
+    - 0.012
+    - -0.018
+  grasp_offset_in_rail_m:
+  - 0.0
+  - 0.0
+  - -0.012
+  grasp_offsets_in_rail_m:
+    left:
+    - 0
+    - 0.009000000000000001
+    - -0.024
+    right:
+    - 0.0005620367023585482
+    - -0.014555322448310232
+    - -0.023548653856393476
+  left_wrap_tip_yz_m:
+    thumb:
+    - 0.01
+    - 0.0
+    fingers:
+    - 0.01
+    - -0.014
+  left_preshape_tip_yz_m:
+    thumb:
+    - 0.04
+    - 0.0
+    fingers:
+    - 0.03
+    - -0.018
+  right_wait_flange_xyz_m:
+  - 0.5
+  - -0.43
+  - 1.2
+  left_lift_pitch_deg: -50
+  left_lift_pullback_m: 0.1
+  left_lift_floor_clearance_m: 0.02
+  rail_mass_measurement:
+    value_g: 764.2
+    source: user_reported_measurement
+    date: '2026-10-22'
+  finger_friction_provenance:
+    value: 1.2
+    source: task_friction_comparison
+    measured: false
+  grasp_rotation_in_rail_rpy_deg:
+    left:
+    - -101.06152898078246
+    - -9.05503384093568
+    - 129.88277177109805
+    right: &id001
+    - 67.7410967915347
+    - 0.9367203678499268
+    - 16.677808189751016
+  left_lift_vertical_m: 0.28
+  convex_decomposition_links:
+  - l_mount
+  - l_thumb_proximal
+  - l_thumb_proximal_abd
+  - l_thumb_middle
+  - l_thumb_distal
+  - l_thumb_tip_sensor_frame
+  - l_index_finger_proximal
+  - l_index_finger_proximal_abd
+  - l_index_finger_middle
+  - l_index_finger_distal
+  - l_index_finger_tip_sensor_frame
+  - l_middle_finger_proximal
+  - l_middle_finger_proximal_abd
+  - l_middle_finger_middle
+  - l_middle_finger_distal
+  - l_middle_finger_tip_sensor_frame
+  - l_ring_finger_proximal
+  - l_ring_finger_proximal_abd
+  - l_ring_finger_middle
+  - l_ring_finger_distal
+  - l_ring_finger_tip_sensor_frame
+  - l_pinky_proximal
+  - l_pinky_proximal_abd
+  - l_pinky_middle
+  - l_pinky_distal
+  - l_pinky_tip_sensor_frame
+  - r_mount
+  - r_thumb_proximal
+  - r_thumb_proximal_abd
+  - r_thumb_middle
+  - r_thumb_distal
+  - r_thumb_tip_sensor_frame
+  - r_index_finger_proximal
+  - r_index_finger_proximal_abd
+  - r_index_finger_middle
+  - r_index_finger_distal
+  - r_index_finger_tip_sensor_frame
+  - r_middle_finger_proximal
+  - r_middle_finger_proximal_abd
+  - r_middle_finger_middle
+  - r_middle_finger_distal
+  - r_middle_finger_tip_sensor_frame
+  - r_ring_finger_proximal
+  - r_ring_finger_proximal_abd
+  - r_ring_finger_middle
+  - r_ring_finger_distal
+  - r_ring_finger_tip_sensor_frame
+  - r_pinky_proximal
+  - r_pinky_proximal_abd
+  - r_pinky_middle
+  - r_pinky_distal
+  - r_pinky_tip_sensor_frame
+  demo_grasp_profile:
+    source_episode: recordings/rail_place3/episode_000010
+    camera_frame_index: 315
+    command_frame_time_ns: 7592285455647
+    source_poses_sha256: c5b8dff579c778ff9d5931813a8027ffd21ff6d2a3a9092002e9288dc9fa01c8
+    visual_pose_accuracy_verified: false
+    reference_shape: measured_hand_with_small_index_clearance_correction
+    joint_adjustment_rad:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - -0.040000000000000036
+    - -0.020000000000000018
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    thumb_target_source: recorded_hand_commands
+    four_finger_target_source: measured_shape_with_MCP_flexion_preload
+    MCP_flexion_preload_rad:
+    - 0.05
+    - 0.08
+    - 0.08
+    - 0.08
+    preshape_thumb_source: measured_closed_hand
+    index_closes_last: true
+    closing_geometry:
+      index_delayed: true
+      index_abduction_bias_rad: 2.7755575615628914e-17
+      cross_depth_m: 0.000310100637692174
+      worst_pair:
+      - middle_finger
+      - ring_finger
+      bin_hit: false
+      minimum_bin_clearance_m: 0.005318198652378434
+  closed_hand_profiles_rad:
+    left:
+    - 0.42633332312107086
+    - -0.15436077862977982
+    - 0.4658220261335373
+    - 0.44454941153526306
+    - 0.6730145311355591
+    - -0.16903578162193297
+    - 1.337385654449463
+    - 0.6667438745498657
+    - 1.2173558044433594
+    - -0.33766940236091614
+    - 1.2029781341552734
+    - 0.6921444535255432
+    - 1.4138913917541505
+    - -0.27596601843833923
+    - 1.167883038520813
+    - 0.5727541446685791
+    - 1.4010484981536866
+    - -0.21518871188163757
+    - 1.3037344217300415
+    - 0.5809540748596191
+    right:
+    - 0.23963284492492676
+    - -1.0167948603630066
+    - 1.1253094673156738
+    - 0.012649357318878174
+    - 1.187922763824463
+    - -0.37752221524715424
+    - 1.3372294902801514
+    - 0.5460507869720459
+    - 1.3888185405731202
+    - -0.2045576274394989
+    - 1.0693055391311646
+    - 0.7876965403556824
+    - 1.4440049409866333
+    - -0.14668092131614685
+    - 1.2522034645080566
+    - 0.7817105054855347
+    - 1.387872862815857
+    - 0.04645201563835144
+    - 1.3771331310272217
+    - 0.7287780046463013
+  preshape_hand_rad:
+    left:
+    - 0.29265260696411133
+    - -0.38895702362060547
+    - 0.3945690393447876
+    - 0.3683519959449768
+    - 0.09531075304031353
+    - -0.21903578162193296
+    - 1.337385654449463
+    - 0.6667438745498657
+    - 0.575923295288086
+    - -0.33766940236091614
+    - 1.2029781341552734
+    - 0.6921444535255432
+    - 0.7684774577331543
+    - -0.27596601843833923
+    - 1.167883038520813
+    - 0.5727541446685791
+    - 0.8524387985229493
+    - -0.21518871188163757
+    - 1.3037344217300415
+    - 0.5809540748596191
+    right:
+    - -0.3050588235294118
+    - -1.3335882352941177
+    - 1.1253094673156738
+    - 0.012649357318878174
+    - 0.900331259803772
+    - -0.37752221524715424
+    - 1.3372294902801514
+    - 0.5460507869720459
+    - 1.1499530573272705
+    - -0.2045576274394989
+    - 1.0693055391311646
+    - 0.7876965403556824
+    - 1.0316041998386383
+    - -0.14668092131614685
+    - 1.2522034645080566
+    - 0.7817105054855347
+    - 0.9130957475090028
+    - 0.04645201563835144
+    - 1.3771331310272217
+    - 0.7287780046463013
+  left_index_close_waypoints_rad:
+  - - 0.09531075304031353
+    - -0.21903578162193296
+    - 1.337385654449463
+    - 0.6667438745498657
+  validation_provenance:
+    left_extraction_trial: workspace/outputs/rail_grasp_insert/handover-grasp-batch-15/trial_000
+    validated_phases:
+    - settle
+    - left_pregrasp
+    - left_approach
+    - left_close
+    - left_lift
+    - left_clear
+    - right_ready
+    - left_handover
+    - right_pregrasp
+    - right_approach
+    - right_close
+    - handover_hold
+    - left_release
+    - left_retreat
+    - right_transfer
+    - right_align
+    - right_insert
+    - right_release
+    - right_retreat
+    - verify
+    right_common_hold_trial: workspace/outputs/rail_grasp_insert/handover-physical-21/trial_000
+    right_handover_and_insertion_validated: true
+    completion_standard: physical_contact_only
+    left_release_trial: workspace/outputs/rail_grasp_insert/handover-physical-21/trial_000
+    retreat_geometry_source: workspace/outputs/rail_grasp_insert/handover-demo-analysis/retreat_exact_geometry_search.json
+    remaining_motion_preflight: workspace/outputs/rail_grasp_insert/handover-remaining-planning-03
+    right_grasp_and_left_release_trial: workspace/outputs/rail_grasp_insert/handover-physical-21/trial_000
+    release_geometry_source: workspace/outputs/rail_grasp_insert/handover-demo-analysis/right_release_geometry_search.json
+    full_physical_validation_trial: workspace/outputs/rail_grasp_insert/handover-physical-24/trial_000
+    full_physical_validation_date: '2026-10-23'
+    physical_validation_report: workspace/outputs/rail_grasp_insert/handover-physical-24/physical_validation.json
+    normal_start_full_trials_passed: 1
+  right_demo_grasp_profile:
+    source_episode: recordings/rail_place3/episode_000010
+    camera_frame_index: 720
+    time_ns: 7605793776927
+    visual_pose_accuracy_verified: false
+    source_rotation_only: true
+    measured_shape_within_limits: true
+    contact_search:
+      rotation_rpy_deg: *id001
+      offset_y_m: -0.013333333333333332
+      offset_z_m: -0.023333333333333334
+      contacts_m:
+        thumb: -0.0018466235799155881
+        index_finger: -0.0013315515720718832
+        middle_finger: -0.007907395053016552
+        ring_finger: -0.001847931535257358
+        pinky: -0.0031386964647809757
+      palm_distance_m: 0.0014322414591431047
+      score: 0.00010858183785392737
+    geometry_repair:
+      middle_flex_adjustment_rad: -0.135
+      expected_contacts_m:
+        thumb: -0.0018466231346032213
+        index_finger: -0.0013315585946942904
+        middle_finger: 0.0008678184503623424
+        ring_finger: -0.0018479280684988685
+        pinky: -0.0031386951754742466
+      preshape_rad:
+      - -0.3050588235294118
+      - -1.3335882352941177
+      - 1.1253094673156738
+      - 0.012649357318878174
+      - 0.900331259803772
+      - -0.37752221524715424
+      - 1.3372294902801514
+      - 0.5460507869720459
+      - 1.1499530573272705
+      - -0.2045576274394989
+      - 1.0693055391311646
+      - 0.7876965403556824
+      - 1.0316041998386383
+      - -0.14668092131614685
+      - 1.2522034645080566
+      - 0.7817105054855347
+      - 0.9130957475090028
+      - 0.04645201563835144
+      - 1.3771331310272217
+      - 0.7287780046463013
+      preshape_self_depth_m: 0.0
+      approach_collisions: []
+      maximum_closing_self_depth_m: 0.0
+      passed_geometry: true
+    MCP_preload_rad: 0.05
+    pregrasp_path_source: workspace/outputs/rail_grasp_insert/handover-right-pregrasp-search-01
+  right_cartesian_approach_m: 0.08
+  right_transfer_height_m: 0.1
+  release_hand_rad:
+    right:
+    - -0.3050588235294118
+    - -1.3335882352941177
+    - 1.1253094673156738
+    - 0.012649357318878174
+    - -0.00882411003112793
+    - 0.10541734099388123
+    - 0.39500463008880615
+    - 0.5094546675682068
+    - 0.24701738357543945
+    - 0.015688449144363403
+    - 0.1265459656715393
+    - 0.3519479036331177
+    - 0.22075092792510986
+    - -0.0650956928730011
+    - 0.3095719814300537
+    - 0.12204968929290771
+    - 0.06004810333251953
+    - -0.032166749238967896
+    - 0.6007006168365479
+    - 0.04807394742965698
+  right_retreat_in_rail_m:
+  - 0.0
+  - 0.0
+  - 0.1

@@ -1,0 +1,17 @@
+{
+  "robot_urdf_sha256": "c5fd8aefb665c6a71251c3985d19f16b4db7e2ab3dfdadeb810badf4e32c7081",
+  "fixture_sha256": "bdf64543610496d1942c1aebf400b731e50fb6ce6b42a1a6723a66959d91430f",
+  "fixture_bounds_m": [
+    [
+      -0.05,
+      -0.1507437248,
+      0.0
+    ],
+    [
+      0.05,
+      0.1507437248,
+      0.0922512753
+    ]
+  ],
+  "robot_signature": "077cb092d43d9ecbe14283885711829edfc158589bd4843a9db51bcb931152b4"
+}

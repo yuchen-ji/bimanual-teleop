@@ -74,6 +74,7 @@ python scripts/convert_recording.py --input recordings/<task> \
 | [数据采集操作](docs/recording_guide.md)                 | 流程总览、采集前检查、按键、整理、可选的试运行与审片、导出、训练接入、故障恢复   |
 | [数据采集参考](docs/recording_reference.md)             | 采集架构、数据格式、时间语义、审片文件、转换模式、丢弃与修复、质量等级、实机验收 |
 | [开发参考](docs/development.md)                         | 模块、数据约定、控制时序、设备接口、测试与实机验收                               |
+| [相机标定](camera_calibration/README.md) | 独立腕部手眼标定、第三视角标定、精度验证与导出 |
 | [Quest 客户端](quest_app/README.md)                     | 连接、追踪、APK 构建                                                             |
 | [官方天机 SDK](bimanual_teleop/vendor/tianji/README.md) | 随包 SDK 来源与更新                                                              |
 | [历史记录](docs/history/README.md)                      | 故障分析、迁移验证和设计计划，仅供追溯                                           |
@@ -174,7 +175,7 @@ python scripts/calibrate_wuji_glove.py --kind tactile --side left --user-name NA
 ## 测试
 
 ```bash
-conda run -n bimanual-teleop python -m unittest discover -s tests -q
+conda run -n bimanual-teleop python scripts/run_tests.py discover -s tests -q
 ```
 
 测试不连接设备；实机验收步骤见[开发参考](docs/development.md#测试与验收)。

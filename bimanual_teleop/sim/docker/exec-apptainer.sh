@@ -6,6 +6,7 @@ project_root=$(cd "$sim_root/../.." && pwd)
 runtime_root="$sim_root/.runtime"
 mkdir -p "$runtime_root/container-home" "$runtime_root/apptainer-cache" "$runtime_root/apptainer-tmp" \
   "$runtime_root/tmp" "$runtime_root/pip-cache" "$sim_root/data"
+mkdir -p "$project_root/workspace/outputs"
 export APPTAINER_CACHEDIR="$runtime_root/apptainer-cache"
 export APPTAINER_TMPDIR="$runtime_root/apptainer-tmp"
 export APPTAINERENV_ACCEPT_EULA=Y
@@ -36,6 +37,7 @@ exec "$runtime_root/apptainer/bin/apptainer" exec --nv --overlay "$runtime_root/
   --bind "$project_root:/workspace/bimanual-teleop:ro" \
   --bind "$runtime_root:/sim-runtime:rw" \
   --bind "$sim_root/data:/workspace/bimanual-teleop/bimanual_teleop/sim/data:rw" \
+  --bind "$project_root/workspace/outputs:/workspace/bimanual-teleop/workspace/outputs:rw" \
   --bind /dev/shm:/sim-shm \
   "${display_binds[@]}" \
   "$runtime_root/isaac-sim-5.1.0.sif" "$@"

@@ -38,12 +38,12 @@ def main():
     from .config import load_config, sim_path
     config = load_config(args.config)
     if not sim_path(config["robot"]["urdf"]).is_file():
-        parser.error("Prepare models first: python -m bimanual_teleop.sim.assets")
+        parser.error("Prepare models first: python bimanual_teleop/sim/run.py assets")
     if config["scene"]["asset_profile"] == "rail_task_cad_v1":
         manifest_path = ROOT / "assets/generated/manifest.json"
         manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
         if manifest.get("cad", {}).get("profile") != "rail_task_cad_v1":
-            parser.error("Rebuild the tracked models first: python -m bimanual_teleop.sim.assets")
+            parser.error("Rebuild the tracked models first: python bimanual_teleop/sim/run.py assets")
     command = [str(ROOT / "docker/run-apptainer.sh"), "--standalone", "--steps", str(args.steps), "--codec", args.codec]
     if not args.headless:
         os.environ["BIMANUAL_SIM_GUI"] = "1"

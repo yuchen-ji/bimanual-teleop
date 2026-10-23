@@ -18,7 +18,7 @@
   - `review.py` 读写 `review.json` 并生成预览。
 - `cli/`：大多数命令行入口；`scripts/` 下同名文件只是薄包装。点动入口在 `control/arm/jog.py`，Hand2 回零在 `control/hand/home.py`，`scripts/analyze_tianji_ik.py` 自身就是完整实现。
 - `visualization/`：只读查看器和 RealSense 显示。
-- `tests/support/`：模拟设备、样本和时钟；`recording.py` 构造带真实编码视频的原始条目，可模拟丢帧、暂停、频率异常和元数据差异。转换输出由 `tests/test_recording_golden.py` 锁定，确需改变输出时用 `python -m tests.test_recording_golden --regenerate` 重新生成基线。
+- `tests/support/`：模拟设备、样本和时钟；`recording.py` 构造带真实编码视频的原始条目，可模拟丢帧、暂停、频率异常和元数据差异。转换输出由 `tests/test_recording_golden.py` 锁定，确需改变输出时用 `python tests/test_recording_golden.py --regenerate` 重新生成基线。
 
 ## 数据约定
 

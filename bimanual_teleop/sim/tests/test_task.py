@@ -1,4 +1,5 @@
 import copy
+import json
 import unittest
 
 from bimanual_teleop.sim._dependencies import np
@@ -37,6 +38,14 @@ class TaskTests(unittest.TestCase):
             state = self.fixture_state(i/30); state.pop("hand_contact_force")
             metrics = self.monitor.update(state)
         self.assertFalse(metrics["fixture_completed"])
+
+    def test_metrics_are_json_serializable_above_and_on_fixture(self):
+        for height in (.18, 0):
+            state = self.fixture_state(1)
+            state["rail"][2] += height
+            metrics = self.monitor.update(state)
+            self.assertIsInstance(metrics["fixture_seated"], bool)
+            json.dumps(metrics)
 
     def test_full_task_requires_prior_fixture_stage(self):
         position = np.array(self.config["scene"]["bin_centers"][1])+[0, 0, .0225]

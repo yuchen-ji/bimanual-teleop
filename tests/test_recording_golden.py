@@ -1,7 +1,7 @@
 """Strict and repair conversion outputs stay identical to the recorded baseline.
 
 Regenerate only for an intended output change:
-``python -m tests.test_recording_golden --regenerate``.
+``python tests/test_recording_golden.py --regenerate``.
 """
 
 import importlib.util
@@ -10,6 +10,9 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 

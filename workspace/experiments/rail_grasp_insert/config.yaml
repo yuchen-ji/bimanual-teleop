@@ -1,0 +1,62 @@
+simulation:
+  robot:
+    ready_deg:
+      left: [10, -60, -34, -52, 30, 12, 4]
+      # Park the idle right hand above the rail's transfer/rotation volume.
+      right: [10, -60, 34, -52, -30, 12, -4]
+  rail:
+    # Left input bin: robot-facing narrow rim is the X-negative face, along Y.
+    # The low end rests inside the box; the high end extends toward the robot.
+    # Fitted to the 83 cm rim / 66.5 cm inner floor, retaining reachable grasp poses.
+    initial_center: [0.641067253, 0.560, 0.782762627]
+    initial_rpy_deg: [0, -26, 180]
+
+task:
+  settle_s: 1.0
+  settle_timeout_s: 8.0
+  stable_linear_speed_m_s: 0.005
+  stable_angular_speed_rad_s: 0.04
+  stability_filter_s: 0.10
+  stage_timeout_s: 45.0
+  linear_speed_m_s: 0.04
+  angular_speed_rad_s: 0.25
+  hand_speed_rad_s: 0.6
+  # Experiment-only position gains; URDF effort limits remain unchanged.
+  hand_stiffness: [8.0, 8.0, 4.0, 3.2]
+  hand_damping: [0.15, 0.15, 0.09, 0.09]
+  insertion_speed_m_s: 0.002
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.025
+  lift_m: 0.02
+  lift_hold_s: 1.0
+  clearance_z_m: 1.04
+  clearance_center_xy_m: [0.57, 0.38]
+  transfer_center_m: [0.53, 0.18, 1.00]
+  joint_limit_margin_rad: 0.0872665
+  max_arm_tracking_error_rad: 0.25
+  arm_tracking_timeout_s: 0.25
+  level_tracking_tolerance_rad: 0.20
+  level_hold_s: 1.0
+  release_clearance_m: 0.035
+  preinsert_height_m: 0.025
+  retreat_m: 0.10
+  retreat_direction_in_rail: [0, 1, 0.4]
+  grip_slip_m: 0.008
+  grip_slip_rad: 0.25
+  finger_contact_min_n: 2.0
+  environment_force_limit_n: 5.0
+  support_gap_tolerance_m: 0.001
+  insertion_depth_min_m: 0.005
+  seated_hold_s: 1.0
+  reverse_pin_order: false
+  pregrasp_offset_world_m: [-0.10, 0, 0.10]
+  approach_offset_in_rail_m: [0, 0.10, 0.10]
+  # Reach each waypoint before advancing; coordinates refer to the settled rail.
+  approach_waypoints_in_rail_m: [[0, 0.045, 0.040], [0, 0.035, 0.015], [0, 0, 0]]
+  # Rail model expressed in TCP-flange coordinates; measured grip replaces this after lifting.
+  # Pinch the thin bottom plate: thumb inside the channel, index/middle beneath it.
+  rail_in_flange_xyz_m: [0.03, 0.058, 0.170]
+  rail_in_flange_rpy_deg: [-161.118279, 41.641143, -62.763687]
+  open_hand_rad: [0.568, -0.614, 0.739, 0.582, -0.128164, -0.282147, 1.382942, 1.063861, 0.064306, -0.583753, 1.147393, 0.878914, 1.5, 0.5, 1.9, 1.2, 1.5, 0.5, 1.9, 1.2]
+  wrap_hand_rad: [0.568, -0.614, 0.739, 0.582, -0.128164, -0.282147, 1.382942, 1.063861, 0.064306, -0.583753, 1.147393, 0.878914, 1.5, 0.5, 1.9, 1.2, 1.5, 0.5, 1.9, 1.2]
+  closed_hand_rad: [0.741, -0.047, 0.479, 0.226, 0.481191, -0.404745, 1.284870, 0.869638, 0.661781, -0.433491, 1.034494, 0.634995, 1.5, 0.5, 1.9, 1.2, 1.5, 0.5, 1.9, 1.2]

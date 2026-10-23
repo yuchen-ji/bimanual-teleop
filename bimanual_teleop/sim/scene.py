@@ -9,6 +9,7 @@ from bimanual_teleop.sim._dependencies import np
 from bimanual_teleop.sim._dependencies import Rotation
 
 from . import ROOT
+from .bin_geometry import bin_geometry
 
 
 def _mesh(stage, path, filename, collision=False, approximation="none"):
@@ -54,7 +55,7 @@ def _bind(prim, material):
 def _bind_wrist_windows(stage, robot_path, tools):
     """Make only the solid CAD front-window caps optically clear; retain collision meshes."""
     from pxr import Sdf, Usd, UsdGeom, UsdShade
-    from .camera_calibration import camera_window_faces
+    from .camera_geometry import camera_window_faces
     material = _material(stage, "/World/Materials/WristOpticalWindow", (0., 0., 0.), roughness=0.)
     shader = stage.GetPrimAtPath("/World/Materials/WristOpticalWindow/Shader")
     shader.CreateAttribute("inputs:opacity", Sdf.ValueTypeNames.Float).Set(0.)
@@ -273,6 +274,7 @@ def build_scene(world, config, model, capture=True):
         collider.CreateVisibilityAttr("invisible")
     length, width, height = config["scene"]["bin_inner_size"]
     wall = config["scene"]["bin_wall"]
+    crate = bin_geometry(config["scene"])
     for index, center in enumerate(config["scene"]["bin_centers"]):
         center = np.asarray(center)
         base = f"/World/Bin_{index}"
@@ -282,6 +284,7 @@ def build_scene(world, config, model, capture=True):
                 position = center.copy()
                 position[2] -= (config["scene"]["bin_stack_count"]-1-layer)*config["scene"]["bin_stack_pitch_m"]
                 box.AddTranslateOp().Set(Gf.Vec3d(*position))
+                box.AddScaleOp().Set(Gf.Vec3d(*crate["scale"]))
                 bin_mesh = _mesh(stage, base+f"/Layer_{layer+1}/Mesh", ROOT / "assets/generated/task/bins.obj", True)
                 if appearance["textures"]:
                     planar_uvs(bin_mesh, (.18, .18))
@@ -320,7 +323,7 @@ def build_scene(world, config, model, capture=True):
             parent = robot_path + "/Head_depth_Link"
             parent_pose = model.link_pose("Head depth_Link", zero)
             if config["cameras"]["head"] is not None:
-                from .camera_calibration import head_camera_local_pose
+                from .camera_geometry import head_camera_local_pose
                 position, orientation = head_camera_local_pose(config["cameras"]["head"], parent_pose)
             else:
                 position_world = parent_pose[:3, 3]
@@ -332,7 +335,7 @@ def build_scene(world, config, model, capture=True):
             prefix = "l" if index == 1 else "r"
             parent_link = f"{prefix}_camera_bracket"
             parent = robot_path + "/" + parent_link
-            from .camera_calibration import wrist_camera_local_pose
+            from .camera_geometry import wrist_camera_local_pose
             side = "left" if index == 1 else "right"
             position, orientation = wrist_camera_local_pose(manifest["cad"]["tool_stack"], config["cameras"]["wrist"][side]["pose_in_bracket"])
         if not stage.GetPrimAtPath(parent).IsValid():
@@ -344,7 +347,7 @@ def build_scene(world, config, model, capture=True):
         camera.CreateFStopAttr(0.)  # No depth-of-field blur in the learning cameras.
         lens = (config["cameras"]["head"] if index == 0 else config["cameras"]["wrist"]["left" if index == 1 else "right"])
         if lens is not None:
-            from .camera_calibration import set_pinhole_intrinsics
+            from .camera_geometry import set_pinhole_intrinsics
             set_pinhole_intrinsics(camera, width, height, lens["intrinsics"], lens["distortion_coefficients"])
         else:
             focal_length = 20.

@@ -22,16 +22,16 @@
 检查资源完整性和 Git 跟踪：
 
 ```bash
-python -m bimanual_teleop.sim.resources --check-git
+python bimanual_teleop/sim/run.py resources --check-git
 ```
 
 修改配置或源模型后，重新生成（主机使用 `bimanual-teleop` Conda）：
 
 ```bash
-PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements-assets.txt
+PIP_USER=false pip install -r bimanual_teleop/sim/requirements-assets.txt
 bimanual_teleop/sim/docker/install-cad-reader.sh
-python -m bimanual_teleop.sim.assets
-python -m bimanual_teleop.sim.resources
+python bimanual_teleop/sim/run.py assets
+python bimanual_teleop/sim/run.py resources
 ```
 
 检查命令列出缺失或未引用文件；仅显式添加 `--prune` 才删除未引用资源。新加模型需要先加入转换清单或 URDF 引用，再做清理。Isaac 镜像、可写层、编译缓存和采集数据仍不跟踪，由 `docker/bootstrap-apptainer.sh` 和运行程序生成。

@@ -68,7 +68,7 @@
     ]
   },
   "rail_anchor": [
-    0.458758353,
+    0.527767116,
     0.006474946,
     0.821278683
   ],
@@ -78,7 +78,7 @@
     90.064975509
   ],
   "fixture_anchor": [
-    0.46,
+    0.529008763,
     0,
     0.73
   ],
@@ -87,7 +87,7 @@
       -0.004328654480653449,
       -0.7511056847432009,
       0.6601677916233377,
-      0.10298328650824706
+      0.1719920495082471
     ],
     [
       -0.9999888149844754,
@@ -114,14 +114,14 @@
     -0.2506141029852302,
     0.24827326881913575
   ],
-  "notes": "Initial pose from FoundationPose. Pitch and camera height refined using the measured horizontal tabletop plane, retaining rail long-axis direction and center image ray. World pose is fixed after calibration. Source pose input is rectified; render target includes recorded RGB distortion.",
+  "notes": "Initial pose from FoundationPose; pitch and height constrained by the RGB-D tabletop plane. Recomputed on 2026-10-22 using the measured scene anchors. World camera pose remains fixed during simulation; this is visual alignment, not independently measured robot-camera extrinsics.",
   "render_target": "Original camera_0.mp4, frame 1268; OpenCV pinhole with recorded D436 distortion",
   "T_world_camera_opencv_from_foundationpose": [
     [
       -0.0039819201719286604,
       -0.635965433128783,
       0.7717072710406865,
-      0.0011956653069726264
+      0.0702044283069726
     ],
     [
       -0.9999887406551878,
@@ -152,15 +152,15 @@
     "inlier_pixels": 29016,
     "rms_mm": 1.4145231848056232,
     "camera_position_world_m": [
-      0.10298322606608135,
-      0.05750700589008769,
+      0.1719920495082471,
+      0.05750554750177768,
       1.43141431697177
     ],
     "camera_quaternion_xyzw": [
-      -0.6604514530554227,
-      0.6628399758099615,
-      -0.2506140845270911,
-      0.24827328745130522
+      -0.660451403775883,
+      0.6628400249119203,
+      -0.2506141029852302,
+      0.24827326881913575
     ],
     "depth_source": "FoundationPose/workspace/datasets/rail-episode-000010-camera0/depth/00022920.npy",
     "depth_sha256": "583bd0d7ecc850a51e8a61c36d267504ab4ac653af2ff4d3fcadbc8b83588bae",
@@ -171,5 +171,55 @@
       425
     ],
     "inlier_threshold_m": 0.003
+  },
+  "layout_recheck": {
+    "date": "2026-10-22",
+    "method": "Recompute world optical pose from the archived camera-to-CAD observation and RGB-D tabletop plane using the measured scene layout.",
+    "previous_rail_anchor": [
+      0.458758353,
+      0.006474946,
+      0.821278683
+    ],
+    "previous_fixture_anchor": [
+      0.46,
+      0,
+      0.73
+    ],
+    "previous_T_world_camera_opencv": [
+      [
+        -0.004328654480653449,
+        -0.7511056847432009,
+        0.6601677916233377,
+        0.10298328650824706
+      ],
+      [
+        -0.9999888149844754,
+        0.0019930292707480203,
+        -0.004289258708766346,
+        0.05750554750177768
+      ],
+      [
+        0.0019059528671782912,
+        -0.6601789743552678,
+        -0.7511059107495393,
+        1.43141431697177
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "translation_delta_m": [
+      0.06900876300000003,
+      0.0,
+      0.0
+    ],
+    "rotation_delta_deg": 0.0,
+    "table_height_m": 0.73,
+    "source_pose_sha256_verified": true,
+    "depth_sha256_verified": true,
+    "verification_output": "workspace/outputs/calibration/head-recheck-20261022"
   }
 }

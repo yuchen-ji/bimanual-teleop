@@ -1,6 +1,6 @@
 # 简化架构与无外部设备数据主干
 
-更新：2026-10-14。日常入口为 `python -m bimanual_teleop.sim`，直接在 Remmina 桌面中打开 Isaac 原生场景。
+更新：2026-10-14。日常入口为 `python bimanual_teleop/sim/run.py`，直接在 Remmina 桌面中打开 Isaac 原生场景。
 
 ## 为什么原来复杂，怎样简化
 

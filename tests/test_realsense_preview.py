@@ -2,6 +2,7 @@
 
 from contextlib import redirect_stderr
 import io
+from pathlib import Path
 import subprocess
 from types import SimpleNamespace
 import unittest
@@ -113,6 +114,8 @@ class PreviewTests(unittest.TestCase):
         with patch.object(preview.subprocess, "Popen") as popen:
             view = preview.RealSensePreview()
             view.start()
+            self.assertEqual(popen.call_args.args[0],
+                             [preview.sys.executable, str(Path(preview.__file__).resolve())])
             process = popen.return_value
             process.wait.side_effect = [subprocess.TimeoutExpired("preview", 3), None]
             view.close()

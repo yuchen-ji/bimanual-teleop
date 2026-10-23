@@ -19,6 +19,7 @@ import importlib.abc
 import inspect
 from pathlib import Path
 import pickle
+import pkgutil
 import sys
 import typing
 
@@ -51,12 +52,13 @@ def reject_device_access(event, args):
 sys.meta_path.insert(0, ImportGuard())
 sys.addaudithook(reject_device_access)
 
-modules = []
-for path in sorted((source_dir / 'bimanual_teleop').rglob('*.py')):
-    parts = list(path.relative_to(source_dir).with_suffix('').parts)
-    if parts[-1] == '__init__':
-        parts.pop()
-    modules.append(importlib.import_module('.'.join(parts)))
+modules = [importlib.import_module('bimanual_teleop')]
+# Discover importable source packages, excluding test code. Runtime caches,
+# recordings and vendored SDK files are not public contract modules.
+for entry in pkgutil.walk_packages([str(source_dir / 'bimanual_teleop')], 'bimanual_teleop.'):
+    if 'tests' in entry.name.split('.'):
+        continue
+    modules.append(importlib.import_module(entry.name))
 """
 
 

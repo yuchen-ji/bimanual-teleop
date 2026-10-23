@@ -1,0 +1,31 @@
+# Historical geometry-only baseline; wrong grasp orientation, not the default.
+simulation:
+  robot:
+    # Simulation drive tuning, not a calibration of the physical impedance controller.
+    arm_stiffness: 25000
+    arm_damping: 700
+    ready_deg:
+      left: [35.1767579637, -46.3180956537, -40.6351106899, -94.7528901051, -155.6879119660, 31.8763300909, 55.0889438046]
+      right: [-30, -60, 34, -52, -30, 12, -4]
+task:
+  end_stage: preinsert
+  preinsert_offset_m: 0.02
+  hand_transition_s: 3.0
+  settle_s: 1.0
+  endpoint_timeout_s: 20.0
+  hold_s: 1.0
+  joint_speed_rad_s: 0.12
+  joint_acceleration_rad_s2: 0.25
+  max_tracking_error_rad: 0.035
+  max_grasp_translation_m: 0.005
+  max_grasp_rotation_rad: 0.035
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.00873
+  environment_force_limit_n: 0.5
+  # Initial rail placement represents a human handing it into the middle of the hand.
+  # S is the generated, centred simulation rail frame; O is the original FP CAD frame.
+  # Geometry baseline only: raise the hand 30 mm relative to the legacy grasp
+  # so all CAD hand links clear the fixture at the required 20 mm offset.
+  # This assumption is explicitly NOT a physically validated middle grasp.
+  rail_in_flange_xyz_m: [0.03, 0.03678679668183656, 0.19121320355302943]
+  rail_in_flange_rpy_deg: [-161.118279, 41.641143, -62.763687]

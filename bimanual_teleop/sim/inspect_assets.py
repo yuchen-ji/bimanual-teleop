@@ -12,6 +12,7 @@ from bimanual_teleop.sim._dependencies import trimesh
 
 from . import ROOT
 from .config import load_config, sim_path
+from .bin_geometry import bin_geometry
 from .kinematics import RobotModel, transform
 
 
@@ -72,7 +73,9 @@ def main():
         for layer in range(config["scene"]["bin_stack_count"]):
             position = np.array(center)
             position[2] -= layer*config["scene"]["bin_stack_pitch_m"]
-            add(trimesh.load(ROOT / "assets/generated/task/bins.obj", force="mesh"), transform(position), "#3d7191")
+            matrix = transform(position)
+            matrix[:3, :3] = np.diag(bin_geometry(config["scene"])["scale"])
+            add(trimesh.load(ROOT / "assets/generated/task/bins.obj", force="mesh"), matrix, "#3d7191")
         axes.text(center[0], center[1], center[2]+.22, "Raw parts" if index == 0 else "Finished parts")
     axes.set(xlim=(-.3, 1.1), ylim=(-.8, .8), zlim=(0, 1.5), xlabel="Front X (m)", ylabel="Left Y (m)", zlabel="Up Z (m)")
     axes.set_box_aspect((1.4, 1.6, 1.5)); axes.view_init(elev=24, azim=-135)

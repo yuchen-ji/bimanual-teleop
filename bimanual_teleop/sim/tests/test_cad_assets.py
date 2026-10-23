@@ -84,11 +84,14 @@ class CADAssemblyTests(unittest.TestCase):
         self.assertAlmostEqual(total/rail["mesh_volume_m3"], 1., places=4)
 
     def test_table_narrow_end_and_two_five_layer_stacks(self):
+        from bimanual_teleop.sim.bin_geometry import bin_geometry
         scene = self.config["scene"]
+        crate = bin_geometry(scene)
         self.assertGreater(scene["table_size"][0], scene["table_size"][1])
         self.assertGreater(scene["table_center"][0]-scene["table_size"][0]/2, 0.)
         self.assertEqual(len(scene["bin_centers"]), 2)
         self.assertEqual(scene["bin_stack_count"], 5)
         for center in scene["bin_centers"]:
             self.assertAlmostEqual(center[2]-4*scene["bin_stack_pitch_m"], 0.)
-            self.assertGreater(abs(center[1])-.174, scene["table_size"][1]/2)
+            self.assertAlmostEqual(center[2]+crate["rim_height_m"], .83)
+            self.assertGreater(abs(center[1])-crate["outer_size_m"][1]/2, scene["table_size"][1]/2)

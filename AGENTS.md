@@ -4,6 +4,7 @@
 - 首次创建：在项目根目录运行 `PIP_USER=false conda env create -f environment.yml`。
 - 运行前执行 `conda activate bimanual-teleop`；非交互命令可用 `conda run -n bimanual-teleop ...`。
 - Python 依赖只安装在此环境中，禁止使用系统 Python、`pip --user` 或 `sudo pip` 安装本项目依赖。
+- 项目运行命令统一使用 `python 路径/脚本.py`，文档、独立采样包和子进程调用保持一致。相机标定入口为 `camera_calibration/run.py`，仿真入口为 `bimanual_teleop/sim/run.py`，测试入口为 `scripts/run_tests.py`。
 
 
 

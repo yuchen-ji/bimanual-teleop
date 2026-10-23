@@ -107,6 +107,9 @@ def validate(config):
         raise ValueError("Box stack count must be a positive integer")
     if not math.isfinite(scene["bin_stack_pitch_m"]) or scene["bin_stack_pitch_m"] <= 0:
         raise ValueError("Box stack pitch must be finite and positive")
+    if (len(scene["bin_inner_size"]) != 3
+            or not all(math.isfinite(value) and value > 0 for value in scene["bin_inner_size"])):
+        raise ValueError("Box interior requires positive finite length, width, and depth")
     appearance = scene["appearance"]
     for key in ("wood_linear_rgb", "frame_linear_rgb", "mat_linear_rgb", "bins_linear_rgb", "floor_linear_rgb"):
         color = appearance[key]

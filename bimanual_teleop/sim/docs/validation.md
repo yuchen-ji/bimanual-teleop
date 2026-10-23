@@ -4,9 +4,9 @@
 
 删除仿真目录中 227 个未使用或重复文件，目录磁盘占用从约 378 MiB 降至 173 MiB。保留 467 个必需源文件和运行资源，并加入 Git 跟踪；资源说明和 CAD / 网格的字节保留规则一并跟踪。采集数据、镜像和运行缓存继续忽略。
 
-- `python -m bimanual_teleop.sim.resources --check-git`：无缺失、无未引用、无未跟踪的必需资源。
-- 从 Git 暂存区导出完整项目，在独立目录运行 `python -m bimanual_teleop.sim.assets`：384 个派生文件全部与当前版本逐字节一致，无需聊天附件或项目外 CAD。
-- 清理后实际运行 `python -m bimanual_teleop.sim --headless --steps 120`：正常完成，54 关节，退出状态 closed、tick=120、error=null。
+- `python bimanual_teleop/sim/run.py resources --check-git`：无缺失、无未引用、无未跟踪的必需资源。
+- 从 Git 暂存区导出完整项目，在独立目录运行 `python bimanual_teleop/sim/run.py assets`：384 个派生文件全部与当前版本逐字节一致，无需聊天附件或项目外 CAD。
+- 清理后实际运行 `python bimanual_teleop/sim/run.py --headless --steps 120`：正常完成，54 关节，退出状态 closed、tick=120、error=null。
 - 项目测试 787 项通过；仿真测试共 31 项，30 项通过、1 项因主机缺少 Torch 跳过。
 
 复现与清理报告保存在本机 `.runtime/resource-reproduce-report.json`、`.runtime/asset-cleanup-report.json`，测试日志为 `.runtime/resource-*-tests.log`；这些验证输出不进入 Git。日常启动命令和录制格式保持一致。
@@ -28,7 +28,7 @@
 
 ## 2026-10-14：单命令原生界面与本地记录
 
-日常入口改为 `python -m bimanual_teleop.sim`。在用户 Remmina / XRDP `:10` 中实际打开 Isaac 原生窗口，完整机器人、桌面、箱子与导轨台可见，54 关节状态有限且 tick 持续增加；默认不运行 server / client / 网页服务，也不创建三相机 RGB 渲染产品。[原生视图报告](../data/live/native-view-validation.json) · [原生窗口截图](../data/live/native-local-20261014.png)。
+日常入口改为 `python bimanual_teleop/sim/run.py`。在用户 Remmina / XRDP `:10` 中实际打开 Isaac 原生窗口，完整机器人、桌面、箱子与导轨台可见，54 关节状态有限且 tick 持续增加；默认不运行 server / client / 网页服务，也不创建三相机 RGB 渲染产品。[原生视图报告](../data/live/native-view-validation.json) · [原生窗口截图](../data/live/native-local-20261014.png)。
 
 `--record --trajectory ... --steps 1440` 在同一进程中完成实际 PhysX → 三路 RGB → NVENC → MP4 / Zarr / B 点 → 离线导出：[本地链路报告](../data/live/native-record-validation.json) `passed: true`。**180 图像帧、1440 个物理状态、实际原生窗口 B 键确认在第 18 帧**；完整数据 180 帧，子任务 18 / 162 帧，action 为 180×52。三视频均可完整解码；实际 TCP 与独立 FK 最大位置差约 0.89 µm，执行 tick 不晚于采集 tick。轨迹明确标记 test_data，正常导出拒绝，验证导出显式允许测试数据；这不是完整人工任务示范。
 
@@ -44,8 +44,8 @@
 
 ## 软件与原有项目
 
-- 原有项目 `python -m unittest discover -s tests -q`：**787 项通过**，输出见 `sim/data/regression-tests.log`。
-- 仿真 `python -m unittest discover -s bimanual_teleop/sim/tests -v`：**22 项中 21 项通过、1 项跳过**。跳过的是实际 TianjiRailImageDataset 读取检查，因为当前主机 Conda 未安装训练运行时 Torch；未运行策略训练。
+- 原有项目 `python scripts/run_tests.py discover -s tests -q`：**787 项通过**，输出见 `sim/data/regression-tests.log`。
+- 仿真 `python scripts/run_tests.py discover -s bimanual_teleop/sim/tests -v`：**22 项中 21 项通过、1 项跳过**。跳过的是实际 TianjiRailImageDataset 读取检查，因为当前主机 Conda 未安装训练运行时 Torch；未运行策略训练。
 - 无第三方依赖、无 SDK、无设备访问的包导入与注解解析检查通过。
 - 导轨网格闭合、表面方向一致、体积与面积匹配；70 个碰撞凸体没有填满两个通孔。54 关节 FK／Jacobian 与独立有限差分一致，左右肩原点及手指朝外安装方向通过校验。
 - 四时间戳时钟同步、过期输入拒绝、隐藏设备故障、原点变化、重复事件与共享内存边界通过。输入采用只传最新值的队列，跳过中间样本不会误判为设备故障；真实过期与客户端故障计数变化仍锁定暂停，需 Enter 重新接管。
@@ -68,7 +68,7 @@
 复现：
 
 ```bash
-bimanual_teleop/sim/docker/exec-apptainer.sh /isaac-sim/python.sh -m bimanual_teleop.sim.validate_isaac
+bimanual_teleop/sim/docker/exec-apptainer.sh /isaac-sim/python.sh /workspace/bimanual-teleop/bimanual_teleop/sim/run.py validate_isaac
 ```
 
 ## 引擎到学习格式的链路
@@ -78,7 +78,7 @@ bimanual_teleop/sim/docker/exec-apptainer.sh /isaac-sim/python.sh -m bimanual_te
 复现：
 
 ```bash
-python -m bimanual_teleop.sim.smoke
+python bimanual_teleop/sim/run.py smoke
 ```
 
 ## 历史浏览器查看入口（已移除）

@@ -53,3 +53,6 @@ local.properties
 /datasets/
 /logs/
 
+# Independent simulation experiments
+/workspace/outputs/
+

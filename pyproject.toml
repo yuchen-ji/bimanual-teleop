@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = ["PyYAML>=6,<7", "numpy>=1.23,<2", "scipy>=1.10,<2", "quadprog==0.1.13", "rich>=14,<15"]
 
 [project.optional-dependencies]
+calibration = ["opencv-python-headless==4.11.0.86", "Pillow>=10,<13"]
 visualization = ["matplotlib>=3.10,<4"]
 realsense = ["pyrealsense2==2.58.4.10922", "matplotlib>=3.10,<4"]
 wuji = ["wuji-sdk==2026.10.12"]
@@ -18,8 +19,10 @@ recording = ["av>=14,<17", "zarr>=2.18,<3", "numcodecs>=0.12,<0.16"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["bimanual_teleop*"]
+include = ["bimanual_teleop*", "camera_calibration*"]
+exclude = ["camera_calibration.data*", "camera_calibration.tests*"]
 
 [tool.setuptools.package-data]
+camera_calibration = ["README.md", "requirements.txt", "docs/*.md", "docs/*.csv"]
 bimanual_teleop = ["py.typed"]
 "bimanual_teleop.vendor.tianji" = ["LICENSE", "manifest.json", "README.md", "SDK_PYTHON/*.py", "SDK_PYTHON/*.so", "CommonConfig/*.MvKDCfg"]

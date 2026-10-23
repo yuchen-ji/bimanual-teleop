@@ -21,8 +21,8 @@ sudo apt install -y curl ca-certificates libarchive-tools squashfs-tools e2fspro
 cd "$HOME/projects/bimanual-teleop"
 PIP_USER=false conda env create -f environment.yml
 conda activate bimanual-teleop
-PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements.txt
-python -m bimanual_teleop.sim.resources --check-git
+PIP_USER=false pip install -r bimanual_teleop/sim/requirements.txt
+python bimanual_teleop/sim/run.py resources --check-git
 ```
 
 主机 Python 始终使用 `bimanual-teleop` Conda；Isaac 使用容器自带 Python 3.11。不要使用系统 Python、pip --user 或 sudo pip 安装项目依赖。资源检查应显示 `passed: true`，缺失、未引用、未跟踪列表均为空。
@@ -30,10 +30,10 @@ python -m bimanual_teleop.sim.resources --check-git
 日常搭建无需重新转换 CAD。只有修改源模型或确实要重建网格时，再安装转换工具并执行：
 
 ```bash
-PIP_USER=false python -m pip install -r bimanual_teleop/sim/requirements-assets.txt
+PIP_USER=false pip install -r bimanual_teleop/sim/requirements-assets.txt
 bimanual_teleop/sim/docker/install-cad-reader.sh
-python -m bimanual_teleop.sim.assets
-python -m bimanual_teleop.sim.resources
+python bimanual_teleop/sim/run.py assets
+python bimanual_teleop/sim/run.py resources
 ```
 
 生成的 `robot.urdf`、`task/`、`rail/` 和清单一起进入 Git。重建后用 `git diff` 检查变化；`resources --prune` 仅在明确需要时清理未引用的模型。[模型与装配说明](task-models.md)
@@ -55,7 +55,7 @@ bimanual_teleop/sim/docker/bootstrap-apptainer.sh
 ```bash
 cd /home/jiyuchen/project/WYS/bimanual-teleop
 conda activate bimanual-teleop
-python -m bimanual_teleop.sim
+python bimanual_teleop/sim/run.py
 ```
 
 换设备时改项目位置。程序直接打开完整 Isaac 原生场景，不需要先开 server，不需要浏览器或设备客户端。等待启动和模型准备；可见窗口比场景就绪更早，短暂黑屏不要立刻当作失败。
@@ -65,7 +65,7 @@ python -m bimanual_teleop.sim
 从 SSH / 编程工具启动而没有 DISPLAY 时，可用自己的桌面编号：
 
 ```bash
-python -m bimanual_teleop.sim --display :10
+python bimanual_teleop/sim/run.py --display :10
 ```
 
 `:10` 是当前用户本机 XRDP 会话，换电脑以 Remmina 终端 `echo "$DISPLAY"` 为准。启动器传递当前用户的 X11 授权，不修改 xhost 权限。
@@ -85,7 +85,7 @@ Simulation 面板中的“Frame entire scene”恢复全景。左侧时间线按
 查看无需任何参数。录制加 `--record`：
 
 ```bash
-python -m bimanual_teleop.sim --record
+python bimanual_teleop/sim/run.py --record
 ```
 
 三路 RGB 和原始状态直接在同一个 Isaac 进程里写盘。Simulation 面板：
@@ -103,7 +103,7 @@ python -m bimanual_teleop.sim --record
 有自己的关节轨迹时：
 
 ```bash
-python -m bimanual_teleop.sim --record \
+python bimanual_teleop/sim/run.py --record \
   --trajectory bimanual_teleop/sim/data/my_trajectory.json
 ```
 
@@ -126,10 +126,10 @@ sim/data/recordings/日期_local_标识/episode_000000/
 用真实 SESSION 替换以下占位符。先生成方案，人工填写所选范围的 task；不需要子任务时可直接 `--mode full`：
 
 ```bash
-python -m bimanual_teleop.sim.segments \
+python bimanual_teleop/sim/run.py segments \
   --input bimanual_teleop/sim/data/recordings/SESSION \
   --output bimanual_teleop/sim/data/schemes/scheme_01.yaml
-python -m bimanual_teleop.sim.export \
+python bimanual_teleop/sim/run.py export \
   --input bimanual_teleop/sim/data/recordings/SESSION \
   --output bimanual_teleop/sim/data/datasets/both_01 \
   --mode both --scheme bimanual_teleop/sim/data/schemes/scheme_01.yaml
@@ -148,12 +148,12 @@ python -m bimanual_teleop.sim.export \
 首次换设备先做软件检查，再顺序做物理与采集链路检查；以下容器验证不能与日常 Isaac 同时运行：
 
 ```bash
-python -m unittest discover -s bimanual_teleop/sim/tests -v
+python scripts/run_tests.py discover -s bimanual_teleop/sim/tests -v
 bimanual_teleop/sim/docker/exec-apptainer.sh \
-  /isaac-sim/python.sh -m bimanual_teleop.sim.validate_isaac
+  /isaac-sim/python.sh /workspace/bimanual-teleop/bimanual_teleop/sim/run.py validate_isaac
 ```
 
-以 `data/isaac-validation/report.json` 的 passed=true 和日志共同判断，不能仅凭退出码。外部设备桥接另有 `python -m bimanual_teleop.sim.smoke` 检查。保留新设备报告，旧报告不替代新设备验收。
+以 `data/isaac-validation/report.json` 的 passed=true 和日志共同判断，不能仅凭退出码。外部设备桥接另有 `python bimanual_teleop/sim/run.py smoke` 检查。保留新设备报告，旧报告不替代新设备验收。
 
 ## 7. 常见问题与迁移清单
 

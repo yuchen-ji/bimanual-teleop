@@ -4,7 +4,8 @@ import unittest
 
 from bimanual_teleop.sim import ROOT
 from bimanual_teleop.sim._dependencies import np, Rotation
-from bimanual_teleop.sim.camera_calibration import camera_window_faces, camera_world_from_rail, camera_world_from_table_plane, head_camera_local_pose, pinhole_attributes, wrist_camera_local_pose
+from camera_calibration.legacy_alignment import camera_world_from_rail, camera_world_from_table_plane
+from bimanual_teleop.sim.camera_geometry import camera_window_faces, head_camera_local_pose, pinhole_attributes, wrist_camera_local_pose
 from bimanual_teleop.sim.config import load_config, validate
 
 
@@ -69,6 +70,28 @@ class CameraCalibrationTests(unittest.TestCase):
         np.testing.assert_allclose(head["position_world_m"], np.array(reference["T_world_camera_opencv"])[:3, 3], atol=1e-8)
         np.testing.assert_allclose(Rotation.from_quat(head["quaternion_xyzw"]).as_matrix(),
                                    np.array(reference["T_world_camera_opencv"])[:3, :3], atol=1e-8)
+
+    def test_head_alignment_uses_current_scene_anchors(self):
+        config = load_config()
+        reference = json.loads((ROOT/"configs/head_camera_reference.json").read_text())
+        cad = json.loads((ROOT/"assets/generated/manifest.json").read_text())["cad"]["models"]["rail"]
+        np.testing.assert_allclose(reference["rail_anchor"], config["rail"]["initial_center"], atol=1e-9)
+        np.testing.assert_allclose(reference["fixture_anchor"], config["scene"]["fixture_origin"], atol=1e-9)
+        plane = reference["table_plane_refinement"]
+        expected = camera_world_from_table_plane(reference["T_camera_original_cad"], config["rail"], cad,
+            plane["normal_camera"], plane["plane_offset_m"],
+            config["scene"]["table_center"][2]+config["scene"]["table_size"][2])
+        np.testing.assert_allclose(expected, reference["T_world_camera_opencv"], atol=1e-9)
+
+    def test_layout_recheck_preserves_reference_rail_projection(self):
+        reference = json.loads((ROOT/"configs/head_camera_reference.json").read_text())
+        revision = reference["layout_recheck"]
+        old_camera = np.asarray(revision["previous_T_world_camera_opencv"])
+        new_camera = np.asarray(reference["T_world_camera_opencv"])
+        old_center = old_camera[:3, :3].T @ (np.asarray(revision["previous_rail_anchor"])-old_camera[:3, 3])
+        new_center = new_camera[:3, :3].T @ (np.asarray(reference["rail_anchor"])-new_camera[:3, 3])
+        np.testing.assert_allclose(new_center, old_center, atol=1e-10)
+        self.assertFalse(reference["physical_accuracy_verified"])
 
     def test_optical_window_preserves_bracket_and_camera_shell(self):
         import trimesh

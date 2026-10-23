@@ -1,0 +1,36 @@
+simulation:
+  robot:
+    # Simulation drive tuning, not a calibration of the physical impedance controller.
+    arm_stiffness: 25000
+    arm_damping: 700
+    ready_deg:
+      # Initial IK is regenerated from the whole-hand demonstration template.
+      left: [50.1732673645, -22.6610012054, -39.6042785645, -67.4375457764, 5.9438371658, 27.5366897583, -11.7362689972]
+      right: [-30, -60, 34, -52, -30, 12, -4]
+task:
+  end_stage: preinsert
+  preinsert_offset_m: 0.02
+  hand_transition_s: 3.0
+  settle_s: 1.0
+  endpoint_timeout_s: 20.0
+  hold_s: 1.0
+  joint_speed_rad_s: 0.12
+  joint_acceleration_rad_s2: 0.25
+  max_tracking_error_rad: 0.035
+  max_grasp_translation_m: 0.005
+  max_grasp_rotation_rad: 0.035
+  loading_translation_limit_m: 0.02
+  loading_rotation_limit_rad: 0.25
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.00873
+  environment_force_limit_n: 0.5
+  grasp_template: demonstrated_power_wrap
+  # Adapt the recorded five-finger shape using MCP/palm geometry.
+  # The recording does not contain a calibrated object-to-wrist transform.
+  # The resulting whole-hand transform is saved into effective.yaml at runtime.
+  wrap_thumb_tip_yz_m: [0.015, -0.005]
+  wrap_finger_tip_yz_m: [-0.010, -0.017]
+  wrap_max_joint_adjustment_rad: 0.4
+  wrap_long_axis_sign: -1
+  initial_rail_offset_world_m: [-0.04, 0.10, 0.13]
+  minimum_support_fingers: 4

@@ -60,7 +60,7 @@ cartesian_moving: controller_rejection=1, hold_return=0, stop_packets=3
 
 全部在 Conda 环境 `bimanual-teleop` 执行：
 
-- `python -m unittest discover -s tests`：599 项通过，41.222 秒。包括新增退出确认、回位/接合并发取消、同时关闭、单臂隔离，以及 Q/Ctrl+C 退出失败可见性测试。
+- `python scripts/run_tests.py discover -s tests`：599 项通过，41.222 秒。包括新增退出确认、回位/接合并发取消、同时关闭、单臂隔离，以及 Q/Ctrl+C 退出失败可见性测试。
 - `cmake --build tianji_bridge/build -j4`：成功；默认动态库及 Python 绑定使用 ABI 4。
 - `ctest --test-dir tianji_bridge/build --output-on-failure`：1/1 通过，0.81 秒。本地回环控制器验证低速 RSTA 拒绝不会假成功、左右/双臂下伺服报文只含 state=0、待发旧目标被取消。
 - `git diff --check`：通过。

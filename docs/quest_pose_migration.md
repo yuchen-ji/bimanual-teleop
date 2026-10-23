@@ -112,7 +112,7 @@ variables:
 # 在新工程根目录执行
 PIP_USER=false conda env create -f environment.yml
 conda activate bimanual-teleop
-python -m quest_pose --help
+python scripts/view_quest.py --help
 ```
 
 若环境已存在，先确认其用途，再用 `conda env update -n bimanual-teleop -f environment.yml` 更新，不删除既有环境。禁止使用系统 Python、`pip --user` 或 `sudo pip` 安装本工程依赖。
@@ -345,7 +345,7 @@ QuestPoseView
   update(frame, health)
 ```
 
-模块导入不连接设备、不启动 ADB、不创建窗口。CLI 为 `python -m quest_pose`，支持 `--serial SERIAL`、`--no-keep-awake`、`--help`。
+模块导入不连接设备、不启动 ADB、不创建窗口。CLI 为 `python scripts/view_quest.py`，支持 `--serial SERIAL`、`--no-keep-awake`、`--help`。
 
 启动顺序：
 
@@ -427,7 +427,7 @@ GUI 主线程每 33 ms 读取最新帧，复用现有绘图对象。三路均显
 adb devices -l
 adb -s SERIAL install -r artifacts/quest-pose-debug.apk
 conda activate bimanual-teleop
-python -m quest_pose --serial SERIAL
+python scripts/view_quest.py --serial SERIAL
 ```
 
 SERIAL 替换为设备序列号。只有一台已授权 USB Quest 时可省略 --serial。唤醒头显和手柄，保持手柄在头显摄像头可见范围，关闭系统菜单、权限或边界确认窗口；关闭电脑窗口退出。
@@ -450,7 +450,7 @@ adb -s SERIAL shell am broadcast -a com.oculus.vrpowermanager.automation_disable
 使用 unittest，图形测试采用 Agg 后端。测试导入、解码和图形几何时不能触碰真实设备。
 
 ```bash
-conda run -n bimanual-teleop python -m unittest discover -s tests -q
+conda run -n bimanual-teleop python scripts/run_tests.py discover -s tests -q
 ```
 
 必须覆盖：

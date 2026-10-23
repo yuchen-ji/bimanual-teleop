@@ -24,7 +24,7 @@ def run(output):
         from isaacsim.core.utils.types import ArticulationAction
         from PIL import Image
         from pxr import Gf, Usd, UsdGeom, UsdShade
-        from .camera_calibration import wrist_camera_local_pose
+        from .camera_geometry import wrist_camera_local_pose
         from .kinematics import RobotModel
         from .rendering import configure_camera_rendering
         from .scene import build_scene, look_at, rgb_frames
@@ -122,7 +122,11 @@ def run(output):
         app.close()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
     run(parser.parse_args().output)
+
+
+if __name__ == "__main__":
+    main()

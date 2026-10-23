@@ -1,1 +1,1 @@
-"""Local read-only sampling and offline wrist hand-eye calibration."""
+"""Legacy command forwarding. Implementation lives in camera_calibration."""

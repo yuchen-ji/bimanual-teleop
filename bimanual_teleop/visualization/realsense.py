@@ -1,11 +1,16 @@
 """Optional color-only preview in a process that never imports robot control."""
 
+import argparse
 from dataclasses import dataclass
+from pathlib import Path
 import select
 import signal
 import subprocess
 import sys
 import time
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bimanual_teleop.visualization.style import styled
 from bimanual_teleop.recording.camera import orient_rgb
@@ -24,7 +29,7 @@ class RealSensePreview:
     def start(self):
         try:
             self.process = subprocess.Popen(
-                [sys.executable, "-m", __name__], stdin=subprocess.PIPE,
+                [sys.executable, str(Path(__file__).resolve())], stdin=subprocess.PIPE,
                 start_new_session=True)
         except OSError as error:
             print_message(f"RealSense 预览未启动：{error}", "warning")
@@ -152,6 +157,7 @@ def run_preview(stop_requested, *, rs=None, plt=None):
 
 
 def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
     stopped = False
 
     def stop(*_):

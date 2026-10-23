@@ -42,15 +42,19 @@ robot:
 scene:
   asset_profile: rail_task_cad_v1
   # +X points from the robot towards the far, narrow end of the 1 m table.
-  table_center: [0.78, 0, 0]
+  # Near edge X=0.349008763: 295 mm from the waist/leg column front.
+  table_center: [0.849008763, 0, 0]
   table_size: [1.00, 0.67, 0.73]
-  # Robot-side long edge is 0.13 m inside the near table edge (X=0.28 m).
-  fixture_origin: [0.46, 0, 0.73]
+  # Fixture's robot-side long edge remains 130 mm inside the near table edge.
+  fixture_origin: [0.529008763, 0, 0.73]
   # Origins of the accessible, fifth box; lower four boxes start at floor Z=0.
-  bin_centers: [[0.72, 0.56, 0.712], [0.72, -0.56, 0.712]]
+  # Crate rear outer rim is 153 mm beyond the table's near edge (+X).
+  # Floor Z=0.665 m and upper rim Z=0.830 m; bottom crate rests on the ground.
+  bin_centers: [[0.737392950, 0.56, 0.657413793], [0.737392950, -0.56, 0.657413793]]
   bin_stack_count: 5
-  bin_stack_pitch_m: 0.178  # Same 4 mm nesting as the supplied scene assembly.
-  bin_inner_size: [0.465, 0.320, 0.182]
+  bin_stack_pitch_m: 0.16435344825
+  # Clear opening length, width, and internal floor-to-rim depth; scales CAD.
+  bin_inner_size: [0.445, 0.318, 0.165]
   bin_wall: 0.01
   # Linear RGB, fitted visually to episode_000010 (not measured reflectance).
   appearance:
@@ -76,7 +80,7 @@ rail:
   rest_offset_m: 0
   friction: 0.5
   finger_friction: 0.8
-  initial_center: [0.458758353, 0.006474946, 0.821278683]
+  initial_center: [0.527767116, 0.006474946, 0.821278683]
   initial_rpy_deg: [0, 0, 90.064975509]
 cameras:
   width: 640
@@ -97,9 +101,10 @@ cameras:
       intrinsics: {fx: 387.45574951171875, fy: 387.0589599609375, cx: 331.08758544921875, cy: 243.1349639892578}
       distortion_coefficients: [-0.05294565111398697, 0.05861711502075195, -0.00033983553294092417, 0.00026320802862755954, -0.018332328647375107]
   # RGB optical frame, fitted to episode_000010/camera_0, final frame 1268 + table depth.
-  # Reference and coordinate conventions: docs/head-camera.md.
+  # Rechecked against the measured scene layout on 2026-10-22.
+  # Reference: camera_calibration/docs/head-alignment.md (project root).
   head:
-    position_world_m: [0.10298328650824706, 0.05750554750177768, 1.43141431697177]
+    position_world_m: [0.1719920495082471, 0.05750554750177768, 1.43141431697177]
     quaternion_xyzw: [-0.660451403775883, 0.6628400249119203, -0.2506141029852302, 0.24827326881913575]
     intrinsics:
       fx: 388.1229248046875
