@@ -9,7 +9,7 @@
 | 步骤 | 命令 | 必须 | 结果 |
 | --- | --- | --- | --- |
 | 采集 | `teleop_quest_tianji.py --record --task <task> --viewer` | 是 | `recordings/<task>/episode_*/`，状态 `captured` |
-| 整理 | `finalize_recording.py` | 是 | 生成 `raw.zarr`，状态 `complete`；删除作废条目 |
+| 整理 | `finalize_recording.py` | 是 | 生成 `raw.zarr`，状态 `complete`；删除作废和失败条目 |
 | 试运行 | `convert_recording.py --dry-run` | 否 | 打印每条的等级、丢弃和修复，不写文件 |
 | 审片 | `review_recording.py` | 否 | `review.json`：剔除条目、决定暂停接缝是否接上 |
 | 导出 | `convert_recording.py --output` | 是 | `datasets/<name>.zarr`，默认修复模式 |
@@ -30,10 +30,10 @@ python scripts/convert_recording.py --input recordings/rail_place \
 
 - 机械臂、灵巧手和三台 RealSense 周围无人员和障碍物；实体急停已释放且随手可按。
 - `nvidia-smi -L` 能列出显卡。采集只用 NVENC 硬件编码，检查不通过时程序会在机械臂运动前退出。
-- [采集配置](../configs/recording.yaml)中的相机序列号与实物一致，顺序固定为 `camera_0` 主视角、`camera_1` 机器人左臂（`408322072104`）、`camera_2` 机器人右臂（`408322070938`）；`frame_capacity` 已按主机内存设置。
+- [采集配置](../configs/recording.yaml)中的相机序列号与实物一致，顺序固定为 `camera_0` 主视角 D436（`405622076394`）、`camera_1` 机器人左臂（`408322072104`）、`camera_2` 机器人右臂（`408322070938`）；`frame_capacity` 已按主机内存设置。
 - `recordings/` 所在磁盘空间充足，主视角原始深度约占 1.1 GB/分钟。
 
-2026-10-14 起左右臂相机编号调整为上述顺序；旧配置采集的数据是 `camera_1` 右臂、`camera_2` 左臂，不会自动改名。混用前须按元数据中的序列号统一对应关系，详见[相机配置与编号](recording_reference.md#配置)。
+2026-10-14 起左右臂相机编号调整为上述顺序；旧配置采集的数据是 `camera_1` 右臂、`camera_2` 左臂，不会自动改名。2026-10-16 起主视角 `camera_0` 为 D436 `405622076394`，此前是 D435 `348122072137`。混用前须按元数据中的序列号统一对应关系，详见[相机配置与编号](recording_reference.md#配置)。
 
 ## 2. 启动
 
@@ -73,9 +73,9 @@ python scripts/teleop_quest_tianji.py --record --task rail_place --viewer
 python scripts/finalize_recording.py --input recordings/<task>
 ```
 
-- 作废（X）的条目在这一步被**直接删除**，不可恢复；失败的条目保留以便排查。整理成功的条目才能导出。删除后编号留空，新条目不会复用。
+- 作废（X）和采集失败的条目在这一步被**直接删除**，不可恢复。正在采集时中断、状态仍为 `capturing` 的条目会跳过并保留。整理成功的条目才能导出。删除后编号留空，新条目不会复用。
 - 整理成功后，条目内的原始缓存 `raw_spool/` 移到 `raw_spools/<task>/<episode>`（相对当前目录），原处留符号链接；`--spool-archive DIR` 可改位置，但不能放在 `--input` 之内。
-- 某条失败时继续整理其余条目，最后以非零退出码结束；排除问题后重跑同一命令即可。
+- 整理某一条出错时继续整理其余条目，最后以非零退出码结束；排除问题后重跑同一命令即可。
 
 ## 5. 可选：试运行与审片
 

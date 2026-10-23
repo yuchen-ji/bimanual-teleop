@@ -63,7 +63,7 @@ python scripts/convert_recording.py --input recordings/<task> \
   --output datasets/<task>_eef.zarr --action-space eef
 ```
 
-整理时会删除作废的条目。导出默认用修复模式，不需要人工：短缺帧沿用前一张图像，无法修复的帧剔除，暂停处自动切开，并逐条打印丢弃和修复了什么。导出前可选 `--dry-run` 试运行（不写文件）和 `review_recording.py` 审片（剔除条目、合并暂停接缝）。全部步骤一览见[数据采集操作的流程总览](docs/recording_guide.md#流程总览)，训练读取见其中的[训练接入](docs/recording_guide.md#7-训练接入)。
+整理时会删除作废和采集失败的条目。导出默认用修复模式，不需要人工：短缺帧沿用前一张图像，无法修复的帧剔除，暂停处自动切开，并逐条打印丢弃和修复了什么。导出前可选 `--dry-run` 试运行（不写文件）和 `review_recording.py` 审片（剔除条目、合并暂停接缝）。全部步骤一览见[数据采集操作的流程总览](docs/recording_guide.md#流程总览)，训练读取见其中的[训练接入](docs/recording_guide.md#7-训练接入)。
 
 ## 文档
 

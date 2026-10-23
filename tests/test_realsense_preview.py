@@ -34,11 +34,11 @@ class PreviewTests(unittest.TestCase):
                          ("color", 640, 480, "rgb8", 30))
 
     def test_default_serial_mapping_keeps_left_rgb_rotated_in_standalone_preview(self):
-        rs, _pipelines = sdk(("408322070938", "348122072137", "408322072104"))
+        rs, _pipelines = sdk(("408322070938", "405622076394", "408322072104"))
         cameras = preview.open_cameras(rs)
         image = np.arange(18, dtype=np.uint8).reshape(2, 3, 3)
         expected = {
-            "348122072137": ("camera_0", image),
+            "405622076394": ("camera_0", image),
             "408322072104": ("camera_1", image[::-1, ::-1]),
             "408322070938": ("camera_2", image),
         }

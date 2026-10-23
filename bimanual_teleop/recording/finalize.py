@@ -235,8 +235,9 @@ def _restore_spool(episode, archive):
 def finalize_recordings(path, *, sdk_root=None, spool_archive=None, refinalize=False, progress=None):
     """Finalize every episode below ``path``.
 
-    With ``spool_archive`` each complete episode's raw_spool moves out of the
-    recording tree. With ``refinalize`` complete episodes are reset to captured
+    Discarded and failed episodes are deleted. Capturing episodes are left in
+    place. With ``spool_archive`` each complete episode's raw_spool moves out of
+    the recording tree. With ``refinalize`` complete episodes are reset to captured
     and rebuilt from their spool, followed through the symlink or found again
     under ``spool_archive``; a missing spool leaves the episode complete.
     """
@@ -249,7 +250,7 @@ def finalize_recordings(path, *, sdk_root=None, spool_archive=None, refinalize=F
         archive = Path(spool_archive).expanduser().resolve()
         if archive == source or source in archive.parents:
             raise ValueError(f"{SPOOL} 归档目录不能位于输入目录内：{archive}")
-    report = {"complete": 0, "discarded": 0, "skipped": 0, "failed": 0,
+    report = {"complete": 0, "discarded": 0, "deleted_failed": 0, "skipped": 0, "failed": 0,
               "episodes": [], "deleted": [], "archived": [], "errors": []}
     progress.start(len(episodes))
     for episode in episodes:
@@ -258,10 +259,11 @@ def finalize_recordings(path, *, sdk_root=None, spool_archive=None, refinalize=F
         try:
             document = read_manifest(episode)
             status = document.get("status")
-            if status == DISCARDED:
+            if status in (DISCARDED, FAILED):
                 shutil.rmtree(episode)
-                report["discarded"] += 1
-                report["deleted"].append(str(episode))
+                kind = "discarded" if status == DISCARDED else "deleted_failed"
+                report[kind] += 1
+                report["deleted"].append((kind, str(episode)))
                 continue
             if status not in (CAPTURED, FINALIZING, COMPLETE):
                 report["skipped"] += 1

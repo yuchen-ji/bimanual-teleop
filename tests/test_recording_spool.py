@@ -148,7 +148,7 @@ class RecordingSpoolTests(unittest.TestCase):
         raw = zarr.open_group(str(self.episode / "raw.zarr"), mode="r")
         self.assertEqual(raw.attrs["phase_markers"], markers)
 
-    def test_finalize_searches_every_depth_and_deletes_discarded(self):
+    def test_finalize_searches_every_depth_and_deletes_discarded_and_failed(self):
         root = self.episode.parent / "recordings"
         statuses = {
             "a/episode_000000": "captured",
@@ -156,6 +156,7 @@ class RecordingSpoolTests(unittest.TestCase):
             "d/episode_000002": "failed",
             "d/e/episode_000003": "complete",
             "d/.episode_000004.finalizing-1": "captured",
+            "d/episode_000005": "capturing",
         }
         for name, status in statuses.items():
             (root / name).mkdir(parents=True)
@@ -172,9 +173,11 @@ class RecordingSpoolTests(unittest.TestCase):
             report = finalize_recordings(root)
         self.assertEqual(seen, ["a/episode_000000", "d/e/episode_000003"])
         self.assertFalse((root / "a/b/c/episode_000001").exists())
-        self.assertTrue((root / "d/episode_000002").exists())
-        self.assertEqual((report["complete"], report["discarded"], report["skipped"], report["failed"]),
-                         (1, 1, 1, 1))
+        self.assertFalse((root / "d/episode_000002").exists())
+        self.assertTrue((root / "d/episode_000005").exists())
+        self.assertEqual((report["complete"], report["discarded"], report["deleted_failed"],
+                          report["skipped"], report["failed"]),
+                         (1, 1, 1, 1, 1))
         self.assertEqual(report["errors"][0][1], "broken spool")
 
     def test_finalize_archives_spool_and_refinalizes_through_link(self):

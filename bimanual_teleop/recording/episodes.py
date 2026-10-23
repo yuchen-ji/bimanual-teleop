@@ -77,7 +77,7 @@ class EpisodeNumbers:
 
     The lock is held until ``close`` so only one recorder writes a task at a
     time. The persisted counter keeps numbers from being reused after finalize
-    deletes discarded episodes or an episode is removed by hand.
+    deletes discarded or failed episodes, or an episode is removed by hand.
     """
 
     def __init__(self, directory):

@@ -12,7 +12,7 @@ from bimanual_teleop.recording.finalize import finalize_recordings
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path,
-                        help="任意目录；递归整理其下所有层级的条目，作废条目会被删除")
+                        help="任意目录；递归整理其下所有层级的条目，作废和失败条目会被删除")
     parser.add_argument("--spool-archive", type=Path, default=Path("raw_spools"),
                         help="整理成功后 raw_spool 移到 <此目录>/<task>/<episode>，条目内留下同名符号链接；"
                              "相对当前目录解析，默认 raw_spools，不得位于 --input 之内")
@@ -28,11 +28,13 @@ def main(argv=None):
     except (OSError, ValueError, KeyError, ImportError, RuntimeError) as error:
         print(f"整理失败：{error}", file=sys.stderr)
         return 1
-    for path in report["deleted"]:
-        print(f"已删除作废条目：{path}")
+    labels = {"discarded": "已删除作废条目", "deleted_failed": "已删除失败条目"}
+    for kind, path in report["deleted"]:
+        print(f"{labels[kind]}：{path}")
     for path, error in report["errors"]:
         print(f"整理失败：{path}：{error}", file=sys.stderr)
     print(f"已完成 {report['complete']} 条，删除作废 {report['discarded']} 条，"
+          f"删除失败 {report['deleted_failed']} 条，"
           f"跳过 {report['skipped']} 条，失败 {report['failed']} 条；"
           f"本次归档 raw_spool {len(report['archived'])} 条到 {args.spool_archive.resolve()}。")
     return 1 if report["failed"] else 0

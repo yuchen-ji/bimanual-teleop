@@ -160,7 +160,7 @@ class CameraTests(unittest.TestCase):
         rs = RealSense(clock)
         # Device discovery order differs from the main/left/right recording order.
         rs.devices = {serial: Device(serial) for serial in (
-            "408322070938", "348122072137", "408322072104",
+            "408322070938", "405622076394", "408322072104",
         )}
         rig = CameraRig(load_config(), rs=rs, clock_ns=clock.mono, wall_ns=clock.wall,
                         startup_timeout_s=.1)
@@ -168,7 +168,7 @@ class CameraTests(unittest.TestCase):
         rig.start()
         image = np.arange(18, dtype=np.uint8).reshape(2, 3, 3)
         expected = (
-            ("camera_0", "348122072137", 0, image),
+            ("camera_0", "405622076394", 0, image),
             ("camera_1", "408322072104", 180, image[::-1, ::-1]),
             ("camera_2", "408322070938", 0, image),
         )
