@@ -2,8 +2,8 @@
 # Hand2 固定使用 MIT 控制；profile_id 和 mode 无需填写，由程序内部维护。
 # 填已有标定用户名，例如 "yuchen"；"" 使用 SDK 默认用户，--user-name 可临时覆盖。
 # sdk_user_name: "HaoranHu"
-sdk_user_name: "wangyongsen"
-# sdk_user_name: "yuchen"
+# sdk_user_name: "wangyongsen"
+sdk_user_name: "yuchen"
 # sdk_user_name: "Ma"
 # sdk_user_name: "Default"
 
@@ -38,10 +38,10 @@ devices:
     # 左手套的 IP 与 SDK 连接端口。
     glove: "192.168.1.100:50001"
     # 左侧 Hand2 的 IP 与 SDK 连接端口。
-    hand: "192.168.1.110:7447"
+    hand: "192.168.1.110:50001"
   # 右手套对应右侧 Hand2。
   right:
     # 右手套的 IP 与 SDK 连接端口。
     glove: "192.168.1.101:50001"
     # 右侧 Hand2 的 IP 与 SDK 连接端口。
-    hand: "192.168.1.111:7447"
+    hand: "192.168.1.111:50001"

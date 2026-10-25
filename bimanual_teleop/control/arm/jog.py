@@ -135,8 +135,12 @@ class SideFeedbackTracker:
 
 def run_jog(driver: TianjiDriver, kinematics: TianjiKinematics, profile: ControlProfile,
             *, side: Side, translation_m: float, rotation_rad: float,
-            transition_s: float, terminal=None, emit=None) -> None:
+            transition_s: float, terminal=None, emit=None,
+            configure_on_engage: bool = False,
+            control_mode: str = "cartesian") -> None:
     """Process keys and refresh the selected target at 200 Hz while engaged."""
+    if control_mode not in ("cartesian", "position"):
+        raise ValueError("control_mode must be cartesian or position")
     progress = LiveProgress()
     status = StatusConsole()
 
@@ -154,7 +158,10 @@ def run_jog(driver: TianjiDriver, kinematics: TianjiKinematics, profile: Control
             emit(message)
 
     executor = TianjiCartesianExecutor(driver, kinematics)
-    executor.configure(profile)
+    configured = False
+    if not configure_on_engage:
+        executor.configure(profile)
+        configured = True
     tracker = SideFeedbackTracker(side, driver.watchdog_ns)
     planner = None
     engaged = False
@@ -191,7 +198,13 @@ def run_jog(driver: TianjiDriver, kinematics: TianjiKinematics, profile: Control
                     if key in ("\r", "\n"):
                         if not engaged:
                             try:
-                                executor.engage()
+                                if not configured:
+                                    executor.configure(profile)
+                                    configured = True
+                                if control_mode == "position":
+                                    executor.engage(control_mode="position")
+                                else:
+                                    executor.engage()
                                 planner = JogPlanner(executor.engagement_poses[side], transition_s=transition_s)
                                 engaged = True
                                 say("已接合所选机械臂。", "ready")
@@ -200,15 +213,16 @@ def run_jog(driver: TianjiDriver, kinematics: TianjiKinematics, profile: Control
                         continue
                     if key not in TRANSLATION_KEYS and key not in ROTATION_KEYS:
                         continue
+                    if planner is None:
+                        say("请先按 Enter 接合。", "warning")
+                        continue
                     if reference is None:
                         if engaged:
                             executor.request_hold("selected arm feedback lost")
                             engaged = False
                             planner = None
-                        say("所选机械臂反馈无效或超时，已暂停。", "warning")
-                        continue
-                    if planner is None:
-                        say("请先按 Enter 接合。", "warning")
+                        health = driver.health(sides=(side,))
+                        say(f"所选机械臂反馈无效或超时，已暂停：{health.detail or '关节反馈无效或源序号未更新'}", "warning")
                         continue
                     try:
                         goal = planner.step(key, now, side=side, kinematics=kinematics,

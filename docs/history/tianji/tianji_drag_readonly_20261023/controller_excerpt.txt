@@ -1,0 +1,8 @@
+48550: [INFO][19:40:43              3306793][SI]___FX_SyncFFDTorque:------- enter -------
+48551: [INFO][19:40:43              3306793][SI]___FX_SyncFFDTorque:------- init_current arm0 {-341586,37257,-222500,-160134,-2797,-2091,128000}--------
+48552: [INFO][19:40:43              3306793][SI]__FX_RequestTransToSensorMode: arm0: Sync cmd pos as actual feedback pos
+48553: [INFO][19:40:43              3306793][SI]__FX_RequestTransToSensorMode: arm0: Request servo change to sensor ctrl
+48554: [INFO][19:40:43              3306793][SI]___FX_SyncFFDTorque:------- enter -------
+48555: [INFO][19:40:43              3306793][SI]___FX_SyncFFDTorque:------- init_current arm1 {352480,41030,222237,-159517,-12225,-1069,-114000}--------
+48556: [INFO][19:40:43              3306793][SI]__FX_RequestTransToSensorMode: arm1: Sync cmd pos as actual feedback pos
+48557: [INFO][19:40:43              3306793][SI]__FX_RequestTransToSensorMode: arm1: Request servo change to sensor ctrl

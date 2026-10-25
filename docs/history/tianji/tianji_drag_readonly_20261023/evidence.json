@@ -1,0 +1,26 @@
+{
+  "captured_at_host": "2026-10-23T15:00:28.589194+08:00",
+  "controller_ip": "192.168.1.190",
+  "method": "Official SDK standalone RecvFile via TCP 10240; no OnLinkTo/Connect; no control commands",
+  "source_files": {
+    "tools_cfg.json": {
+      "bytes": 4200,
+      "sha256": "58b672212e15401b4afd3f1e3ff5f3e1733209a22517df2349e2b49d3b1328bc"
+    },
+    "robot.ini": {
+      "bytes": 13180,
+      "sha256": "c1579026284dc7e13de4a147f5a243054baf7ee33d3f096de5635851c980f77d"
+    },
+    "controller_LOG.txt": {
+      "bytes": 5058028,
+      "sha256": "7e1ab32fc5e7d1c2f2da9687ed2b18fb349a552b66e2a4f882e66914e180ab38"
+    }
+  },
+  "full_log_local_path": "/home/yuchen/project/bimanual-teleop/logs/tianji_drag_diagnosis_20261023/controller_LOG.txt",
+  "limitations": [
+    "Persisted files are not live m_In.m_ToolDyn feedback.",
+    "Controller log times are not synchronized to the host; captured transitions cannot be identified as the reported drag incident.",
+    "The log contains no case-insensitive drag entries.",
+    "Optional /home/fusion/tool_dyn_kine.txt download returned false; no valid contents obtained."
+  ]
+}

@@ -151,6 +151,22 @@ python scripts/home_wuji_hand2.py --side both      # Hand2 回零，每侧默认
 
 `teleop_quest_tianji.py` 每次启动写一份 JSONL 运行日志，并在终端打印路径（默认 `logs/teleop_quest_tianji_<时间>_<进程>.jsonl`，相对启动目录）。日志包含启动参数与运行环境、警告和错误、录制故障和退出时的进程状态；每次暂停写入原因、设备诊断和故障前约 2 s 的控制周期快照。正常运行时不逐秒记录状态。排查暂停时请保留该文件。
 
+## 主视角相机标定
+
+将标定板刚性固定在机械臂末端，保持主视角相机固定，用键盘点动机械臂并按 `C` 手动采样。安装依赖、键位和离线求解见[主视角标定说明](camera_calibration/README.md)。
+
+```bash
+python camera_calibration/run.py external collect --side left --output camera_calibration/data/main_left
+```
+
+## 腕部相机标定
+
+腕部相机固定在末端、标定板固定在环境中，使用与主相机相同的位置模式键盘控制，按 `C` 保存原图和实际关节，实时显示圆点和顺序编号。运行前断开机器人上位机连接，左右臂分别采集；键位与求解见[腕部标定说明](camera_calibration/docs/wrist.md)。
+
+```bash
+python camera_calibration/run.py wrist collect --side left
+```
+
 ## 手套标定
 
 左右手分别标定，`NAME` 换成唯一用户名（不存在则创建，存在则更新）；完成后把用户名填入 Wuji 配置的 `sdk_user_name`。

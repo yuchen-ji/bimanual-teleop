@@ -15,10 +15,11 @@ visualization = ["matplotlib>=3.10,<4"]
 realsense = ["pyrealsense2==2.58.4.10922", "matplotlib>=3.10,<4"]
 wuji = ["wuji-sdk==2026.10.12"]
 recording = ["av>=14,<17", "zarr>=2.18,<3", "numcodecs>=0.12,<0.16"]
+calibration = ["opencv-python-headless>=4.10,<4.12", "Pillow>=10,<13"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["bimanual_teleop*"]
+include = ["bimanual_teleop*", "camera_calibration*"]
 
 [tool.setuptools.package-data]
 bimanual_teleop = ["py.typed"]

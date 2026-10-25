@@ -9,7 +9,7 @@ import tempfile
 from types import SimpleNamespace
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 import yaml
 
@@ -176,6 +176,57 @@ class TianjiJogTests(unittest.TestCase):
         self.assertEqual(calls[:3], ["configure", "engage", "submit"])
         self.assertTrue(any(item[0] == "hold" and "joint limit" in item[1]
                             for item in calls if isinstance(item, tuple)))
+
+    def test_calibration_defers_configuration_until_enter(self):
+        for keys, expected in ((_Keys("q"), []), (_Keys("\r", "q"), ["configure", "engage", "submit", "hold"])):
+            calls = []
+            executor = SimpleNamespace(
+                configure=lambda profile: calls.append("configure"),
+                engage=lambda: calls.append("engage"),
+                engagement_poses={"left": POSE}, engagement_ref=None,
+                submit=lambda target: calls.append("submit") or Submission(target.command_id, True),
+                request_hold=lambda reason: calls.append("hold"))
+            driver = SimpleNamespace(watchdog_ns=50_000_000, get_latest=lambda: None)
+            with patch.object(tianji_jog, "TianjiCartesianExecutor", return_value=executor):
+                tianji_jog.run_jog(driver, None, ControlProfile("p", "cartesian_impedance", {}),
+                                   side="left", translation_m=.005, rotation_rad=.02, transition_s=.25,
+                                   terminal=keys, emit=lambda _: None, configure_on_engage=True)
+            self.assertEqual(calls, expected)
+
+    def test_position_mode_persists_across_keyboard_pause_and_resume(self):
+        for options, engagement in (({}, call()), ({"control_mode": "position"}, call(control_mode="position"))):
+            with self.subTest(options=options):
+                now = time.monotonic_ns()
+                arm = SimpleNamespace(source_sequence=1, error=0, joints=JointState((), (0.,)*7))
+                sample = Sample(SampleHeader(SampleRef("tianji", "e", 1), now, True),
+                                SimpleNamespace(arms={"left": arm}))
+                driver = SimpleNamespace(watchdog_ns=50_000_000, get_latest=lambda: sample)
+                executor = Mock(engagement_poses={"left": POSE}, engagement_ref=sample.header.ref)
+                executor.submit.side_effect = lambda target: Submission(target.command_id, True)
+                kinematics = SimpleNamespace(ik=lambda *args: (0.,)*7)
+                with patch.object(tianji_jog, "TianjiCartesianExecutor", return_value=executor), \
+                        patch.object(tianji_jog.time, "monotonic_ns", side_effect=count(now, 1_000_000)), \
+                        patch.object(tianji_jog.time, "sleep"):
+                    tianji_jog.run_jog(driver, kinematics, ControlProfile("p", "cartesian_impedance", {}),
+                                       side="left", translation_m=.005, rotation_rad=.02, transition_s=.005,
+                                       terminal=_Keys("\r", "w", "i", " ", "\r", "w", "q"),
+                                       emit=lambda _: None, configure_on_engage=True, **options)
+                self.assertEqual(executor.engage.call_args_list, [engagement, engagement])
+                executor.configure.assert_called_once()
+                self.assertEqual(executor.submit.call_count, 5)
+                targets = [item.args[0].tool_poses["left"] for item in executor.submit.call_args_list]
+                self.assertTrue(any(pose.position_m[0] > 0 for pose in targets))
+                self.assertTrue(any(pose.orientation_xyzw[0] > 0 for pose in targets))
+                self.assertEqual(executor.request_hold.call_args_list,
+                                 [call("keyboard pause"), call("keyboard jog exited")])
+
+    def test_invalid_control_mode_cannot_configure_or_engage(self):
+        with patch.object(tianji_jog, "TianjiCartesianExecutor") as factory:
+            with self.assertRaisesRegex(ValueError, "control_mode"):
+                tianji_jog.run_jog(None, None, ControlProfile("p", "cartesian_impedance", {}),
+                                   side="left", translation_m=.005, rotation_rad=.02, transition_s=.25,
+                                   control_mode="pvt")
+            factory.assert_not_called()
 
     def test_jog_after_engagement_ignores_unselected_fault(self):
         now = time.monotonic_ns()

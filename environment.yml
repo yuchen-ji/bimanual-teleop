@@ -8,7 +8,7 @@ dependencies:
   - pip:
       - numpy==1.26.4
       - matplotlib==3.10.9
-      - -e .[visualization,wuji,realsense,recording]
+      - -e .[visualization,wuji,realsense,recording,calibration]
 variables:
   PIP_USER: "false"
   PYTHONNOUSERSITE: "1"
