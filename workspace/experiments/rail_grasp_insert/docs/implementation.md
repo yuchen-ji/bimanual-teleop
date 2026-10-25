@@ -2,6 +2,14 @@
 
 日常命令统一见 [运行说明](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/experiments/rail_grasp_insert/README.md)。本页只说明当前双手版本；旧版配置、命令和验收已移到 [单手历史记录](legacy-single-arm.md)。
 
+## 通用场景修正上移后的验收（2026-10-23）
+
+当前完整验收回合为 `handover-defaults-physical-26/trial_000`，已从正常初态通过全部 20 个阶段，最终 `success / verify`。当前代码、默认配置与验证记录的哈希一致。与原成功回合 24 逐项比较，82 个碰撞体的表示、接触偏移和静／动摩擦一致，10,668 个 54 关节目标路点完全相同；末段 1 秒的 121 个采样全部就位，原始两手接触力均为 0。当前 64 项任务软件检查通过。
+
+默认质量上移为实测 0.7642 kg；安装座凹槽保真、实例内部材质与接触参数处理集中至通用 `collisions.py`，双手任务复用同一实现。普通场景的手指保持凸包，精细预设或任务显式覆盖时采用凸分解；底座、力传感器和相机支架保持原成功回合实际使用的凸包。初轮迁移曾额外启用后者的凸分解，回合 25 在插入时滑移停止，该额外范围已收回。最终方案没有改动抓点、手型、控制增益、速度、扭矩上限或原验收限制。
+
+回放签名包含通用碰撞代码哈希，旧完整配置也不能静默掩盖底层物理实现变化。新轨迹位于回合 26 的 `trial_000/trajectory.json`。[迁移验证汇总](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/scene_defaults/20261023-final/summary.json)和[当前完整物理核验](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/physical_validation.json)是当前依据；下文回合 24 及更早记录描述上移前的历史验证。
+
 ## 当前验收结论（2026-10-23）
 
 **正常初态的完整物理任务已通过一次。** `handover-physical-24/trial_000` 完成全部 20 个阶段，最终为 `success / verify`。左手端部取出、右手中部接管、左手松开撤离、右手搬运对准、插入、松手撤离均通过，最终无手接触稳定至少 1 秒。63 项软件检查通过。
@@ -66,7 +74,7 @@
 
 ## 验证范围与查看
 
-预检覆盖左右抓握、左手提起终点和取出终点的名义运动学可达性，以及初始左手预抓取路径，报告 preflight_passed；不证明承重、后续完整搬运路径、换手或插入成功。某一项失败时保存 failed_stage 并报告 failed。物理验证当前仍在进行，具体状态见运行说明，不沿用旧版成功记录。
+预检覆盖左右抓握、左手提起终点和取出终点的名义运动学可达性，以及初始左手预抓取路径，报告 preflight_passed；不证明承重、后续完整搬运路径、换手或插入成功。某一项失败时保存 failed_stage 并报告 failed。完整物理验收以本页开头列出的回合 26 结果为准，不沿用旧版成功记录。
 
 每阶段截图保存在本次目录的 trial_000/snapshots/；camera_0、camera_1、camera_2 对应头部、左腕、右腕。事件、实际接触、关节和导轨状态分别记录在 events.jsonl 与 trace.jsonl。轨迹保存 54 维目标、场景签名和示范来源。场景不匹配时拒绝回放；回放完成仅报告 diagnostic_passed。
 

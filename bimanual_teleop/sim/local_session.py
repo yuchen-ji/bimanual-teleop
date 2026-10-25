@@ -155,8 +155,8 @@ class LocalSession:
         self.window = ui.Window("Simulation", width=350 if self.action_source is not None else 330,
                                 height=430 if self.action_source is not None else 265)
         self.window.deferred_dock_in("Property", ui.DockPolicy.CURRENT_WINDOW_IS_ACTIVE)
-        with self.window.frame:
-            with ui.VStack(spacing=6):
+        with self.window.frame, ui.ScrollingFrame():
+            with ui.VStack(spacing=6, height=0):
                 ui.Label("Local Isaac simulation | no external devices")
                 self.label = ui.Label("Recording enabled" if self.capture_enabled else "View only | use --record for RGB")
                 ui.Button("Record / Pause recording", clicked_fn=self.toggle_recording)
@@ -221,4 +221,7 @@ class LocalSession:
                 if self.action_source is not None:
                     self.action_source.close(error)
             finally:
+                if getattr(self, "window", None) is not None:
+                    self.window.destroy()
+                    self.window = None
                 self.write_status("failed" if error else "closed", error)

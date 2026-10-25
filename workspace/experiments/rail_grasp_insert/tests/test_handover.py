@@ -505,6 +505,15 @@ class HandoverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Replay scene differs"):
             HandoverReplayController(self.config, self.model, task, self.temp.name, path, mode="auto")
 
+    def test_replay_rejects_changed_common_physics_code_with_identical_config(self):
+        path = Path(self.temp.name)/"old-physics.json"
+        path.write_text(json.dumps({"scene_signature": scene_signature(self.config, self.task)}))
+        changed = Path(self.temp.name)/"changed-collisions.py"
+        changed.write_text("# Different common collision implementation\n")
+        with patch("handover.collision_module.__file__", str(changed)):
+            with self.assertRaisesRegex(ValueError, "Replay scene differs"):
+                HandoverReplayController(self.config, self.model, self.task, self.temp.name, path, mode="auto")
+
     def test_trajectory_start_drift_cannot_create_a_joint_target_jump(self):
         self.controller.phase_index = PHASES.index("left_pregrasp")
         pose = self.model.flange("left", self.state["q"], True)

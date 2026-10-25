@@ -33,6 +33,10 @@ robot:
   arm_stiffness: 400
   arm_damping: 40
   crossed_controllers: true
+  collision:
+    # Mount recesses always use convex decomposition. Choose detailed fingers
+    # for contact tasks; the everyday desktop keeps the cheaper convex hulls.
+    finger_approximation: convexHull
   appearance:
     # Approximate the real robot's white painted shells and dark hardware/gloves.
     shell_linear_rgb: [0.82, 0.82, 0.80]
@@ -74,8 +78,8 @@ rail:
   hole_diameter_m: 0.008
   pin_diameter_m: 0.006683183
   hole_segments: 32
-  mass_kg: 0.8
-  mass_is_assumption: true
+  mass_kg: 0.7642  # User measured 764.2 g on 2026-10-22.
+  mass_is_assumption: false
   contact_offset_m: 0.0002
   rest_offset_m: 0
   friction: 0.5

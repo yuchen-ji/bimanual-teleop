@@ -762,10 +762,13 @@ task:
     remaining_motion_preflight: workspace/outputs/rail_grasp_insert/handover-remaining-planning-03
     right_grasp_and_left_release_trial: workspace/outputs/rail_grasp_insert/handover-physical-21/trial_000
     release_geometry_source: workspace/outputs/rail_grasp_insert/handover-demo-analysis/right_release_geometry_search.json
-    full_physical_validation_trial: workspace/outputs/rail_grasp_insert/handover-physical-24/trial_000
+    full_physical_validation_trial: workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/trial_000
     full_physical_validation_date: '2026-10-23'
-    physical_validation_report: workspace/outputs/rail_grasp_insert/handover-physical-24/physical_validation.json
+    physical_validation_report: workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/physical_validation.json
     normal_start_full_trials_passed: 1
+    previous_full_physical_validation_trial: workspace/outputs/rail_grasp_insert/handover-physical-24/trial_000
+    scene_defaults_migration_validated: true
+    scene_defaults_migration_summary: workspace/outputs/scene_defaults/20261023-final/summary.json
   right_demo_grasp_profile:
     source_episode: recordings/rail_place3/episode_000010
     camera_frame_index: 720

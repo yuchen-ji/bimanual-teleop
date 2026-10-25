@@ -1,6 +1,7 @@
 """Host-side adapter to the existing preinsert pipeline and FoundationPose."""
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -25,11 +26,22 @@ class Bridge:
     def __init__(self, simulation, task, output, perception="oracle"):
         self.simulation, self.task, self.output, self.perception = simulation, task, Path(output), perception
         self.config = load_config(LIVE / "config.yaml")
+        # Planning and reconstruction must read the same generated assets.
+        from bimanual_teleop.sim import ROOT
+        from bimanual_teleop.sim.config import sim_path
+        from bimanual_teleop.sim.kinematics import RobotModel
+        self.config["urdf"] = str(sim_path(simulation["robot"]["urdf"]))
+        self.config["manifest"] = str(ROOT / "assets/generated/manifest.json")
         self.kinematics = TianjiKinematics()  # Official offline math only; no driver.
         self.geometry = RobotGeometry(self.config, self.kinematics)
+        simulated = RobotModel(sim_path(simulation["robot"]["urdf"]), simulation["robot"]["world_yaw_deg"])
+        if (simulated.names != self.geometry.robot.names
+                or not np.allclose(simulated.world, self.geometry.robot.world)):
+            raise ValueError("Simulation robot frames/joints do not match the existing planner; regenerate compatible assets")
         self.T_B_W = self.geometry.T_B_W
         self.S_O = cad_to_sim(__import__("json").loads(Path(self.config["manifest"]).read_text()))
         self.references = hand_references(self.config)
+        self.base_references = copy.deepcopy(self.references)
         for name in ("calibration", "target", "scene"):
             self.config[name] = str(self.output / "inputs" / f"{name}.json")
         self.config["joint_speed_rad_s"] = task["joint_speed_rad_s"]
@@ -39,6 +51,49 @@ class Bridge:
         self.accuracy = {}
         if task.get("grasp_template") == "demonstrated_power_wrap":
             self.configure_demonstrated_grasp()
+        from task_settings import apply_overrides
+        self.references = apply_overrides(self.task, self.references, self.geometry.robot)
+        self.configure_initial_direction()
+
+    def reconfigured(self, simulation, task):
+        """Prepare a candidate without changing the active planner or references."""
+        result = copy.copy(self)
+        result.simulation, result.task = copy.deepcopy(simulation), copy.deepcopy(task)
+        result.config = copy.deepcopy(self.config)
+        result.references = copy.deepcopy(self.base_references)
+        result.plan, result.accuracy = None, {}
+        if task.get("grasp_template") == "demonstrated_power_wrap":
+            result.configure_demonstrated_grasp()
+        from task_settings import apply_overrides
+        result.references = apply_overrides(result.task, result.references, result.geometry.robot)
+        result.config.update(joint_speed_rad_s=task["joint_speed_rad_s"],
+                             joint_acceleration_rad_s2=task["joint_acceleration_rad_s2"])
+        result.configure_initial_direction()
+        return result
+
+    def configure_initial_direction(self):
+        direction = self.task.get("initial_flange_z_axis_world")
+        if direction is None:
+            return
+        from common import align_flange_z, pose_error
+        from rail_preinsert.core import pose as sdk_pose
+        from task_settings import ready_joints
+        model = self.geometry.robot
+        runtime = {key: self.references[key] for key in ("open", "grasp")}
+        joints = ready_joints(self.simulation, runtime, model)
+        initial = model.flange("left", joints, world=True)
+        target = align_flange_z(initial, direction)
+        joints[:7] = self.kinematics.ik("left", sdk_pose(self.T_B_W @ target), tuple(joints[:7]))
+        actual = model.flange("left", joints, world=True)
+        error = pose_error(actual, target)
+        if error[0] > .001 or error[1] > .002:
+            raise ValueError("Initial flange direction IK did not meet pose tolerance")
+        self.simulation["robot"]["ready_deg"]["left"] = np.degrees(joints[:7]).tolist()
+        write_json(self.output / "initial_flange_alignment.json", {
+            "direction_world": (np.asarray(direction) / np.linalg.norm(direction)).tolist(),
+            "T_W_F_before": initial.tolist(), "T_W_F_target": target.tolist(), "T_W_F_actual": actual.tolist(),
+            "position_residual_m": error[0], "rotation_residual_rad": error[1],
+            "joint_target_deg": np.degrees(joints[:7]).tolist(), "test_data": True})
 
     def configure_demonstrated_grasp(self):
         from common import seated_rail
@@ -112,6 +167,8 @@ class Bridge:
                 "source": "simulation ground-truth pose; not vision", "records": records}
 
     def handle(self, request, observation=None):
+        from task_settings import positive_settings
+        self.config.update(positive_settings(request.get("task_settings", {})))
         observation = observation if observation is not None else self.observation(request)
         stage = request["stage"]
         # Independent diagnostics only: never replace, align, flip or seed the

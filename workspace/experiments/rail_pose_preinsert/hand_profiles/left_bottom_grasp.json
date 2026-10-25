@@ -1,0 +1,191 @@
+{
+  "simulation_only": true,
+  "label": "left_bottom_grasp",
+  "source_run": "/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_pose_preinsert/20261025_133239_9e07a1",
+  "status": "constrained_grasp_complete",
+  "pure_friction_grasp_validated": false,
+  "command_position_rad": [
+    -0.38128437514720986,
+    -1.0482230836904283,
+    0.7311833803952047,
+    0.6128089923093051,
+    1.566170993014444,
+    -0.2072109848054242,
+    1.424052021879822,
+    0.16366730411452313,
+    1.5577632045464347,
+    -0.05119347775532874,
+    1.2998821435510441,
+    0.09335431842412362,
+    1.4897130775267269,
+    0.038357859591465975,
+    1.322831057229364,
+    0.3126784695608746,
+    1.1371997432699332,
+    0.13918046434267314,
+    1.5107023380672615,
+    0.23822441317784684
+  ],
+  "measured_position_rad": [
+    -0.3730643093585968,
+    -1.0496901273727417,
+    0.7324476838111877,
+    0.612798273563385,
+    1.5644128322601318,
+    -0.20715712010860443,
+    1.4209831953048706,
+    0.16228051483631134,
+    1.556140422821045,
+    -0.05131228268146515,
+    1.2968474626541138,
+    0.09215667843818665,
+    1.4884254932403564,
+    0.038143619894981384,
+    1.3194775581359863,
+    0.3118888735771179,
+    1.1375532150268555,
+    0.13894231617450714,
+    1.5077505111694336,
+    0.2373790442943573
+  ],
+  "joint_names": [
+    "l_thumb_cmc_flex",
+    "l_thumb_cmc_abd",
+    "l_thumb_mcp",
+    "l_thumb_ip",
+    "l_index_finger_mcp_flex",
+    "l_index_finger_mcp_abd",
+    "l_index_finger_pip",
+    "l_index_finger_dip",
+    "l_middle_finger_mcp_flex",
+    "l_middle_finger_mcp_abd",
+    "l_middle_finger_pip",
+    "l_middle_finger_dip",
+    "l_ring_finger_mcp_flex",
+    "l_ring_finger_mcp_abd",
+    "l_ring_finger_pip",
+    "l_ring_finger_dip",
+    "l_pinky_mcp_flex",
+    "l_pinky_mcp_abd",
+    "l_pinky_pip",
+    "l_pinky_dip"
+  ],
+  "T_flange_rail": [
+    [
+      -0.9976703284766413,
+      0.002455067186285741,
+      -0.06817542315542341,
+      -0.0031438302955630326
+    ],
+    [
+      0.06821258434285002,
+      0.021554457553371233,
+      -0.9974379422785404,
+      0.03356929467835301
+    ],
+    [
+      -0.0009792928978578626,
+      -0.9997646613101959,
+      -0.021671709224919598,
+      0.10653865847891725
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "verification": {
+    "simulation_only": true,
+    "pregrasp_max_rotation_error_rad": 8.425101037226698e-08,
+    "pregrasp_max_translation_m": 0.013599359893121244,
+    "five_distal_surface_gap_m": {
+      "thumb": 0.00014369534937914692,
+      "index_finger": 0.00014957260221716548,
+      "middle_finger": 0.0001650245424497064,
+      "ring_finger": 0.00015990864234921714,
+      "pinky": 0.00015066504513699952
+    },
+    "intersecting_links": [],
+    "interfinger_intersections": [],
+    "bottom_contact": {
+      "index_finger": {
+        "gap_m": 0.00014957260221716548,
+        "rail_point_m": [
+          -0.025193100522891535,
+          0.0005334775248833596,
+          -0.012854504399999944
+        ],
+        "pad_point_m": [
+          -4.7452067520305344e-07,
+          -0.009415859356522564,
+          -0.007892152294516537
+        ],
+        "inward_alignment": 0.9990056602023738,
+        "face_ok": true
+      },
+      "middle_finger": {
+        "gap_m": 0.0001650245424497064,
+        "rail_point_m": [
+          -0.008580568793839527,
+          -0.0036142645207617352,
+          -0.012854504400000069
+        ],
+        "pad_point_m": [
+          -4.7452067520413807e-07,
+          -0.009414021857082868,
+          -0.0078006559051573
+        ],
+        "inward_alignment": 0.9780368063583652,
+        "face_ok": true
+      },
+      "ring_finger": {
+        "gap_m": 0.00015990864234921714,
+        "rail_point_m": [
+          0.008063171624314582,
+          0.0004199816433648255,
+          -0.01285450440000011
+        ],
+        "pad_point_m": [
+          -4.745206751833832e-07,
+          -0.009415859356522574,
+          -0.00789215229451657
+        ],
+        "inward_alignment": 0.9990135757568455,
+        "face_ok": true
+      },
+      "pinky": {
+        "gap_m": 0.00015066504513699952,
+        "rail_point_m": [
+          0.026651787990803064,
+          -0.005844582606431624,
+          -0.012854504400000103
+        ],
+        "pad_point_m": [
+          -0.0008396895136684,
+          -0.009370297193527239,
+          -0.0077495402656495155
+        ],
+        "inward_alignment": 0.9711929789286561,
+        "face_ok": true
+      }
+    },
+    "bottom_contact_face_ok": true,
+    "collision_geometry_and_settings_unchanged": true,
+    "hand_rail_collision_enabled": true,
+    "attachment_criterion": "distal_clearance_0.2mm",
+    "pure_friction_grasp_validated": false,
+    "follow_check": {
+      "max_relative_error_m_rad": [
+        6.6683602911415956e-06,
+        5.361739133700482e-06
+      ],
+      "flange_motion_m_rad": [
+        0.0022510893653356866,
+        0.01204145091830197
+      ]
+    },
+    "fixed_attachment_active": true
+  }
+}

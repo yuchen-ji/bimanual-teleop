@@ -228,8 +228,14 @@ def collect(args):
             )
             plt.show(block=False)
         print(
-            f"Read-only capture: {output}\nKeep board fixed. Move wrists with the pendant/drag mode; hold each pose 1-2 s.\n"
-            f"Target {args.samples} distinct poses per wrist. Q / close window / Ctrl+C finishes and saves.",
+            f"Read-only capture: {output}\n"
+            "采样程序只读取图像与实际关节反馈，不会使能、回位或开启拖动模式。\n"
+            "用独立示教器低速调整所选机械臂；拖动示教须先在厂家控制端启用。保持标定板固定。\n"
+            "不能同时运行本项目 Quest 遥操作、点动或其他占用 UDP 4730 的 SDK 程序。\n"
+            f"完整显示 20 个圆点，停稳 1～2 秒后自动保存，每侧目标 {args.samples} 组，无需按拍照键。\n"
+            "看到 Saved 提示且计数增加后再换姿态，改变位置及多个方向的转动。\n"
+            "Q（预览窗口）/ 关闭窗口 / Ctrl+C 结束并保留样本；Q 不是机器人停止指令。\n"
+            "详细操作：camera_calibration/docs/wrist.md",
             flush=True,
         )
         while not stop_ui.is_set() and any(

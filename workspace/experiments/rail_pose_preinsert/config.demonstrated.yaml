@@ -1,0 +1,54 @@
+simulation:
+  robot:
+    # Simulation drive tuning, not a calibration of the physical impedance controller.
+    arm_stiffness: 25000
+    arm_damping: 700
+    ready_deg:
+      # Initial IK is regenerated from the whole-hand demonstration template.
+      left: [50.1732673645, -22.6610012054, -39.6042785645, -67.4375457764, 5.9438371658, 27.5366897583, -11.7362689972]
+      right: [-30, -60, 34, -52, -30, 12, -4]
+task:
+  desktop_layout:
+    enabled: true
+    maximize: true
+    resolution: [1280, 960]  # All four viewports: 4:3, letterboxed when necessary.
+    main_eye_m: [-0.8, -1.25, 1.8]
+    main_target_m: [0.45, 0.0, 0.78]
+    inspector_width_fraction: 0.13
+    tools_width_fraction: 0.115
+    content_height_fraction: 0.22
+    camera_column_fraction: 0.60
+    wrist_height_fraction: 0.45
+  # Keep Isaac open, edit this file, then click Simulation -> Apply config / Restart task.
+  # Optional overrides: hand_open_override_rad / hand_grasp_override_rad (20 radians each),
+  # rail_in_flange_override: {xyz_m: [x, y, z], rpy_deg: [roll, pitch, yaw]},
+  # left_hand_stiffness / left_hand_damping (20 positive values each).
+  end_stage: preinsert
+  preinsert_offset_m: 0.02
+  hand_transition_s: 3.0
+  settle_s: 1.0
+  endpoint_timeout_s: 20.0
+  hold_s: 1.0
+  joint_speed_rad_s: 0.12
+  joint_acceleration_rad_s2: 0.25
+  max_tracking_error_rad: 0.035
+  max_grasp_translation_m: 0.005
+  max_grasp_rotation_rad: 0.035
+  loading_translation_limit_m: 0.02
+  loading_rotation_limit_rad: 0.25
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.00873
+  environment_force_limit_n: 0.5
+  grasp_template: demonstrated_power_wrap
+  # Adapt the recorded five-finger shape using MCP/palm geometry.
+  # The recording does not contain a calibrated object-to-wrist transform.
+  # The resulting whole-hand transform is saved into effective.yaml at runtime.
+  wrap_thumb_tip_yz_m: [0.015, -0.005]
+  wrap_finger_tip_yz_m: [-0.010, -0.017]
+  wrap_max_joint_adjustment_rad: 0.4
+  wrap_long_axis_sign: -1
+  initial_rail_offset_world_m: [-0.04, 0.10, 0.13]
+  # Align flange +Z with world +X, keeping its initial position and minimizing rotation.
+  # Use null to keep the original demonstrated orientation.
+  initial_flange_z_axis_world: [1.0, 0.0, 0.0]
+  minimum_support_fingers: 4

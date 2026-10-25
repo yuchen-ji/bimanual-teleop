@@ -11,13 +11,15 @@ from bimanual_teleop.sim._dependencies import yaml
 from . import ROOT
 
 
-def load_config(path=None):
+def load_config(path=None, *, overrides=None):
     default = yaml.safe_load((ROOT / "configs/default.yaml").read_text())
     if path is not None:
         supplied = yaml.safe_load(Path(path).read_text())
         if not isinstance(supplied, dict):
             raise ValueError("Simulation configuration must be a mapping")
         _merge(default, supplied)
+    if overrides is not None:
+        _merge(default, overrides)
     calibration_file = default["cameras"]["wrist_calibration_file"]
     if calibration_file is not None and not isinstance(calibration_file, str):
         raise ValueError("Camera wrist_calibration_file must be a path string or null")
@@ -124,6 +126,8 @@ def validate(config):
     for key, color in config["robot"]["appearance"].items():
         if len(color) != 3 or not all(math.isfinite(value) and 0 <= value <= 1 for value in color):
             raise ValueError(f"Robot {key} requires three linear RGB values in [0, 1]")
+    if config["robot"]["collision"]["finger_approximation"] not in ("convexHull", "convexDecomposition"):
+        raise ValueError("Finger collision approximation must be convexHull or convexDecomposition")
     for name in ("initial_center", "initial_rpy_deg"):
         if len(rail[name]) != 3 or not all(math.isfinite(value) for value in rail[name]):
             raise ValueError(f"Rail {name} requires three finite values")
@@ -131,6 +135,13 @@ def validate(config):
     diameter, spacing = rail["hole_diameter_m"], rail["hole_spacing_m"]
     if not all(math.isfinite(v) and v > 0 for v in (length, width, height, diameter, spacing, rail["mass_kg"])):
         raise ValueError("Rail dimensions and mass must be finite and positive")
+    if type(rail["mass_is_assumption"]) is not bool:
+        raise ValueError("Rail mass_is_assumption must be a boolean")
+    for name in ("friction", "finger_friction", "rest_offset_m", "contact_offset_m"):
+        if not math.isfinite(rail[name]) or rail[name] < 0:
+            raise ValueError(f"Rail {name} must be finite and nonnegative")
+    if rail["contact_offset_m"] <= rail["rest_offset_m"]:
+        raise ValueError("Contact offset must be larger than rest offset")
     if not rail["pin_diameter_m"] < diameter < width or spacing + diameter >= length:
         raise ValueError("Holes must clear pins and fit within the rail")
     if type(rail["hole_segments"]) is not int or rail["hole_segments"] < 16:

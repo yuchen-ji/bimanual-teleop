@@ -24,7 +24,16 @@ def main(argv=None):
         "wrist", help="Calibrate wrist cameras against their flanges"
     )
     actions = wrist.add_subparsers(dest="action", required=True)
-    capture = actions.add_parser("collect", help="Run on the USB-connected PC")
+    capture = actions.add_parser(
+        "collect",
+        help="Run on the USB-connected PC",
+        description=(
+            "只读采样：用独立示教器调整机械臂，保持标定板固定；"
+            "停稳 1～2 秒后自动保存，无需按拍照键。"
+            "程序不会使能或开启拖动模式，不能同时运行本项目 Quest／点动 SDK 程序。"
+        ),
+        epilog="逐步操作见 camera_calibration/docs/wrist.md。",
+    )
     _capture_options(capture, 20)
     capture.add_argument("--side", choices=("left", "right", "both"), default="both")
     capture.add_argument("--left-serial", default="408322072104")

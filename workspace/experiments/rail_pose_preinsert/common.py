@@ -28,6 +28,26 @@ def pose_error(a, b):
             float(Rotation.from_matrix(a[:3, :3] @ b[:3, :3].T).magnitude())]
 
 
+def align_flange_z(T_W_F, direction_world):
+    """Keep the origin and align +Z with a minimum world-frame rotation."""
+    direction = np.asarray(direction_world, dtype=float)
+    if direction.shape != (3,) or not np.isfinite(direction).all() or np.linalg.norm(direction) < 1e-10:
+        raise ValueError("initial_flange_z_axis_world requires a nonzero finite 3D direction")
+    target = np.array(T_W_F, dtype=float, copy=True)
+    desired = direction / np.linalg.norm(direction)
+    current = target[:3, 2]
+    axis = np.cross(current, desired)
+    sine, cosine = np.linalg.norm(axis), np.clip(current @ desired, -1., 1.)
+    if sine > 1e-10:
+        rotation = Rotation.from_rotvec(axis / sine * np.arctan2(sine, cosine)).as_matrix()
+    elif cosine < 0:
+        rotation = Rotation.from_rotvec(target[:3, 0] * np.pi).as_matrix()
+    else:
+        rotation = np.eye(3)
+    target[:3, :3] = rotation @ target[:3, :3]
+    return target
+
+
 def finger_forces(state):
     forces = state.get("rail_contacts", {})
     return {finger: float(sum(value for name, value in forces.items() if name.startswith("l_"+finger+"_")))

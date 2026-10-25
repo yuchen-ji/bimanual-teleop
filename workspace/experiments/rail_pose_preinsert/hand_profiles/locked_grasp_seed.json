@@ -1,0 +1,25 @@
+{
+  "simulation_only": true,
+  "description": "Optimization warm start only; validate all distances and the entire sampled path before execution. First 16 values are thumb and four-finger flexion angles; last 3 values are rail translation in units of 10 mm.",
+  "optimizer_seed": [
+    -0.42377117678953974,
+    -0.7152394934545573,
+    0.9375961415044086,
+    -0.27081778180935023,
+    0.2378919452978897,
+    2.0260434424812175,
+    5.030646679526169e-12,
+    0.39473082955476435,
+    1.9161962469423957,
+    0.0031373509591120555,
+    0.2786909769050373,
+    1.6635169022983778,
+    0.46794183043031184,
+    0.16489196866839226,
+    1.4057075002161272,
+    0.5906191370168999,
+    1.4818707704637648,
+    -0.16039066150072273,
+    -1.5002000937736504
+  ]
+}

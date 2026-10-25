@@ -139,6 +139,7 @@ def main():
         version = subprocess.run(["git", "rev-parse", "HEAD"], cwd=PROJECT, capture_output=True, text=True, check=True).stdout.strip()
         dirty = subprocess.run(["git", "status", "--porcelain"], cwd=PROJECT, capture_output=True, text=True, check=True).stdout
         code_paths = [*HERE.glob("*.py"), PROJECT/"bimanual_teleop/sim/engine.py", PROJECT/"bimanual_teleop/sim/local_session.py",
+                      PROJECT/"bimanual_teleop/sim/scene.py", PROJECT/"bimanual_teleop/sim/collisions.py",
                       PROJECT/"bimanual_teleop/sim/task.py",
                       PROJECT/"bimanual_teleop/sim/assets/generated/manifest.json",
                       PROJECT/"bimanual_teleop/sim/configs/wrist_camera_calibrated.yaml"]

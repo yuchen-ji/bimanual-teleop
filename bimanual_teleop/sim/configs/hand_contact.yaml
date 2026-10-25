@@ -1,0 +1,4 @@
+# Detailed finger contact geometry; retains the default rail initial pose.
+robot:
+  collision:
+    finger_approximation: convexDecomposition

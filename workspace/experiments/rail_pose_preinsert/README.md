@@ -1,140 +1,132 @@
-# 左手持轨搬运至预插入位姿
+# 导轨预插入仿真实验
 
-独立于原 `rail_grasp_insert` 双手接力实验。本实验只执行：正确就位目标示教 → 模拟人工递料 → 左手闭合 → 初始位姿估计 → 固定抓握关系计算 → 持物碰撞规划 → 搬运到沿孔轴外移 **20 mm** 的预插入位姿 → 保持。没有下降插入、松手或撤离。
+模拟递料、左手抓握、位姿估计和搬运，在目标位姿沿孔轴外移 20 mm 处保持；不执行插入或真机控制。当前抓稳和 FoundationPose 方向稳定性尚未通过验收。
 
-主机复用 `/home/jiyuchen/project/WYS/diffusion_policy/workspace/rail_pose_insert/` 的坐标链、官方离线 FK/IK、FCL 碰撞检查、RRT 与五次曲线。Isaac 通过文件请求主机计算，不导入或连接天机、Hand2、RealSense 实机驱动。三个输入 JSON 全部由仿真生成，写在本次输出的 `inputs/`，标记 `test_data=true`，真机入口会拒绝。
+## 启动
 
-## 验证模式
+当前默认执行保持导轨朝向的五指抓握（`task.until: grasp`、`orientation_locked_grasp: true`）。握紧前以模拟递料支撑保持初始朝向，规划器允许导轨平移，并分别拟合四指末端指节和拇指接触；现有碰撞体和碰撞过滤保持不变。通过实际接触与完整网格检查后，才启用法兰与导轨的固定关节。
 
-| 参数 | 验证内容 | 不能据此认定的结论 |
-|---|---|---|
-| `--perception oracle`（默认） | 以实际仿真位姿作观测，检查坐标转换、持轨规划和执行 | FoundationPose 已可靠识别 |
-| `--perception foundationpose` | 头部渲染 RGB、米制深度，去畸变后真实 GPU 位姿估计 | 真实反光、深度噪声与遮挡效果已覆盖 |
-| `--grasp fixed` | 显式选择的理想固定抓握诊断；固定物理约束表达“不滑动” | 手指已依靠摩擦抓稳，或手轨不存在穿模 |
-| `--grasp physics`（默认） | 启用手轨碰撞、关闭固定约束，检查各指接触和手轨漂移，失败保留证据 | 真机手部控制与摩擦已标定 |
+`grasp_contact_surface: bottom` 指定四指末端内侧贴合导轨底面：最近点必须落在导轨的下表面中央区域、位于末端指腹内侧，且内侧朝向底面（夹角不超过约 20°）。侧面间隙再小也不满足连接条件。先调整拇指避让，再平移导轨，最后弯曲四指；每段在执行前检查完整手部几何，并检查不同手指的中节、末端指节和指腹之间的间距；四指张开角度参与求解，避免互相挤压造成目标偏移。`bottom_grasp_seed.json` 是底面包握的求解初值，与历史两侧夹持初值分开保存。
 
-模拟人工递料只进行一次明确记录的导轨状态放置，在闭合期间由运动学支撑模拟人手扶持。之后取消支撑。物理模式要求拇指和四根支持手指分别达到接触力门槛、合力方向对向并持续稳定。固定模式使用 USD 固定关节，不逐帧改写导轨位姿；为表达理想刚体，固定模式会过滤手轨接触，所以不能验收抓持。
+```bash
+python workspace/experiments/rail_pose_preinsert/run.py --mode auto --until grasp --grasp contact_fixed
+```
 
-默认模板已撤下旧单臂旋转和人为 30 mm 偏移。参考 episode 000034 在约 9.246 s 的实际五指状态，按四指根部排列和掌面方向构造中部包握；四指弯曲承托、拇指对向。各关节适配限制在参考值 ±0.4 rad，来源和改动保存在 `grasp_template.json`。记录中没有已标定的手轨变换，因此这属于几何重建，不能称为精确复现真实手腕朝向。
+当前 `grasp_attachment_criterion: distal_clearance` 要求五指末端与导轨的间隙均不超过 0.2 mm，实际 PhysX 指节位姿下完整网格不相交，且至少两次检查间隔 0.5 秒；不使用接触力阈值强行压入现有碰撞体。连接后做小幅机械臂往返运动，检查导轨相对法兰的位姿误差。`constrained_grasp_complete` 表示几何贴合已验证且仿真固定约束已建立，**不是纯摩擦无约束抓稳验证**；`physical_grasp_validated` 保持 false。诊断数据保存在 `trials/trial_*/locked_grasp/`，完成图像在 `captures/trial_*/locked_grasp/`。默认只检查抓握，不执行搬运到预插入位姿。
 
-**当前模板仍未通过物理抓稳验收。** 指尖点拟合不能约束整个指节，固定约束预览已查出五指穿入薄壁。所有模式在抓握复核和规划前都检查实际状态的手部实体网格采样；采样穿入超过 0.2 mm 会停止。无穿入样点也不等于完整的无相交证明，物理接触、滑移和外部碰撞检查仍须通过。闭合期间允许加载到稳定接触，形成测量参考后恢复 5 mm / 0.035 rad 的手轨漂移限制，不会持续重置参考。
+首次合拢在约 1 mm 的规划间隙处停止，再按实际指节表面距离逐指微调，给重力和关节跟踪偏差留余量。`hand_profiles/locked_grasp_seed.json` 只用于求解初值，每次都会重新检查场景和路径。底面约束抓握姿态及法兰—导轨相对变换保存在 `hand_profiles/left_bottom_grasp.json`，历史侧面握姿保存在 `hand_profiles/left_locked_grasp.json`，其中保留纯摩擦抓稳尚未验证的标记。
 
-仿真仍是有努力限制的关节位置驱动，并不是天机笛卡尔阻抗控制器的等效复现。实验单独使用 `arm_stiffness=25000`、`arm_damping=700`，不改默认场景；首轮 5000/300 的驱动存在约 4.5 mm 静态法兰偏差，不能满足 2 mm 到位要求。真实驱动增益、重力补偿、手套、接触摩擦、工具质量及法兰安装关系仍需标定。
+早期四指尝试的 `left_four_fingers_supported.json` 已标记为用户拒绝，仅保留诊断记录。下面的四指预闭合是保留的独立诊断模式，其接触统计覆盖整根手指，不能代替上述末端指节接触判据。
 
-## 运行
+**四指预闭合**可显式选择（`--until four_fingers`）。保留模拟递料支撑和现有碰撞体；只驱动四指屈伸，拇指、侧向张合、手臂目标及导轨位姿不变。每轮最多弯曲 2.5°，平滑运动后等待 0.6 秒，再以实际关节与法兰位姿检查完整实体网格。距离导轨不足 2 mm 或已触碰时减为 0.5°；接触力达到 0.3 N 即停止该指当轮运动，稳定接触超过 0.2 N 时保持。
 
-以下使用主机 `bimanual-teleop` Conda 环境，入口自动启动已有 Isaac Sim 5.1 官方容器。默认桌子、箱子、导轨台及头部相机布局在每次启动时读取并保存快照。一次只运行一个使用共享 overlay 的 Isaac 实例。
+单指超过 3 N、手部位移超过 1 mm 或检查发现实体网格相交，会退回已检查的角度并减小步幅；最细 0.1° 仍不能安全继续时，该指停止尝试。各轮角度、接触力、几何检查和退回原因均保留。`four_finger_flexion_limit_rad` 只定义此阶段三个屈伸关节的行程上限，不覆盖完整抓握参考。此阶段不执行目标示教、FoundationPose、重新递料、搬运或撤去支撑。
 
-先做不启动 Isaac 的当前场景规划预检：
+启动后点击 **Start / Next stage**；完成后保存三路图像、关节角和各指接触力，并暂停物理：
+
+```bash
+python workspace/experiments/rail_pose_preinsert/run.py --mode step --until four_fingers
+```
+
+四指接触持续满足条件时记录 `supported_four_finger_contact`；缺少接触时记录 `four_finger_preview_complete`，并列出缺少接触的手指。两者都不代表无支撑抓稳。结果在 `captures/trial_*/four_fingers/` 和 `trials/trial_*/four_fingers_pose.json`。需要恢复完整流程时显式指定 `--until preinsert`。
+
+在 Remmina 远程桌面的终端运行：
 
 ```bash
 cd /home/jiyuchen/project/WYS/bimanual-teleop
 conda activate bimanual-teleop
-python workspace/experiments/rail_pose_preinsert/run.py --preflight --mode auto
+python workspace/experiments/rail_pose_preinsert/run.py --mode step --perception foundationpose
 ```
 
-在 Remmina 桌面终端逐步查看：
+启动器会打开 Isaac Sim 5.1。共享 overlay 同时只能运行一个实例。只检查抓握、暂不调用 FoundationPose 时：
 
 ```bash
-python workspace/experiments/rail_pose_preinsert/run.py --mode step
+python workspace/experiments/rail_pose_preinsert/run.py --mode step --until grasp
 ```
 
-场景自动完成目标示教。点击 Simulation 面板的 **Next stage** 执行闭合；测量和规划完成后，再点一次执行搬运。**Run automatically** 自动推进；**Pause task / Resume** 只暂停任务推进，物理仍运行；暂停全部物理使用 Isaac 时间轴。到位后保持，不会插入。右臂全程保持初始目标。
+启动后自动恢复四视图：左侧全景，右上头部相机，右下左右腕部相机；四个画面均为 **4:3**。Camera Inspector 在左侧，Stage/Simulation 在右侧，Content/Console 在底部。布局与全景视角保存在 `task.desktop_layout`；`enabled: false` 可关闭启动时恢复。图像保持比例，面板较窄时显示黑边。
 
-无窗口运行物理抓握和搬运流程（抓握失败会在搬运前停止）：
+这里的 Camera Inspector 是任务提供的只读位姿查看器，显示所选相机的世界/局部位姿，不改写相机标定或物理对象。
 
-```bash
-python workspace/experiments/rail_pose_preinsert/run.py --headless --mode auto
-```
+## 执行与失败重试
 
-以渲染 RGB-D 测试 FoundationPose（主机需有同级 FoundationPose 项目及现有 `foundationpose` 环境）：
+操作集中在 **Simulation** 面板。
 
-```bash
-python workspace/experiments/rail_pose_preinsert/run.py \
-  --headless --mode auto --perception foundationpose
-```
+- **Start / Next stage**：开始当前阶段；任务已经结束时，重置并开始新一轮。
+- **Run automatically**：自动推进。
+- **Restart task**：复位并从头重新执行，无需关闭 Isaac；分步模式仍会在后续阶段等待 Next。
+- **Apply config / Restart task**：重新读取 YAML；普通参数只复位任务，场景结构或资源改变时自动重建场景。
+- **Apply config / Rebuild scene**：强制重新读取配置和资源，在同一个 Isaac 应用内重建场景。
+- **Pause / Resume physics**：暂停或继续尚未结束的任务。任务结束后保持暂停；原生工具栏 Play 也不会继续执行失去检测的物理场景。
+- **View head camera / Frame entire scene**：查看头部相机或全景。
+- **Restore default layout**：恢复任务配置中的四视图布局、相机绑定和 4:3 比例。重试任务会保留当前窗口布局。
 
-仿真语义分割提供**可见导轨掩码**，替代当前真机流程中的人工掩码；位姿由 FoundationPose 估计，不从真值初始化或修正。真值仅用于独立最终误差验收。该模式暂时假定分割正确，不能验收自动分割算法。
+抓握、感知或碰撞检查失败后会暂停物理并保留软件，可直接点击 **Restart task** 重试。场景加载后的 Python 运行异常也会保留窗口，并在重试时重新绑定物理控制句柄。构建场景失败时，在错误窗口点 **Apply config / Rebuild scene** 可修正配置后重试。
 
-先只诊断抓握，不进入规划和搬运：
+参数通过 `config.yaml` 或 `--config <配置路径>` 设置。加 `--record` 录制三路视频。无窗口运行使用 `--headless --mode auto`，失败后仍返回非零退出码。
 
-```bash
-python workspace/experiments/rail_pose_preinsert/run.py \
-  --headless --mode auto --until grasp
-```
+## 修改参数再试
 
-显式加 `--grasp fixed` 可查看理想约束诊断。其手轨碰撞被过滤，不能作为抓稳证据；实际网格采样发现穿模仍会拒绝完成预览。
+保持 Isaac 打开，在编辑器中修改并保存启动时的配置文件，然后点 **Apply config / Restart task**。读取期间暂停任务；无效配置会显示拒绝原因，并保留原设置。**Restart task** 只重试已应用的设置，不读取文件。命令行指定的 `--until` 始终优先。
 
-`--record` 额外录制三路视频；默认在各次测量保存三路 PNG。`--output` 必须是本项目 `workspace/outputs/` 下尚不存在的目录。`--config` 可使用独立 YAML 覆盖实验参数；不改默认仿真配置。`--display :10` 可指定自己的 X11 桌面。
+默认 `config.yaml` 已保存用户调整后的七个初始关节角、预抓握手势、闭合目标和手轨相对位姿。直接点 **Apply config / Restart task** 即可；这是任务复位，不是从当前姿态执行旋转轨迹。
+
+| 修改内容 | YAML 字段 | 处理方式 |
+| --- | --- | --- |
+| 默认初始机械臂姿态 | `simulation.robot.ready_deg.left` | 7 个关节角，单位度；应用并重置，无需重新启动软件 |
+| 导轨初始生成位姿 | `task.initial_rail_pose_world: {xyz_m: [...], rpy_deg: [...]}` | 直接在指定世界位姿生成导轨；不改变导轨台上的目标位姿 |
+| 自动模板的递料初始位置 | `task.initial_rail_offset_world_m` | 仅自动模板模式：重算初始 IK 并重置 |
+| 自动模板的法兰 Z 轴朝向 | `task.initial_flange_z_axis_world: [1, 0, 0]` | 需要已加载轴对齐代码的启动器：保持法兰初始位置，最小旋转对齐并生成关节角 |
+| 手内导轨位置、方向 | `task.rail_in_flange_override: {xyz_m: [...], rpy_deg: [...]}` | 应用并重置 |
+| 开手、闭合握姿 | `task.hand_open_override_rad`、`task.hand_grasp_override_rad` | 各 20 个弧度值，按手部关节顺序 |
+| 时长、规划速度、检查阈值 | `task` 中对应原有字段 | 同步规划器与仿真，再重置 |
+| 质量、摩擦、碰撞偏移 | `simulation.rail` 中 `mass_kg`、`friction`、`finger_friction`、`contact_offset_m`、`rest_offset_m` | 更新物理属性；质量变化按比例更新惯量 |
+| 机械臂驱动 | `simulation.robot.arm_stiffness`、`arm_damping` | 更新实际关节驱动 |
+| 左手驱动 | `task.left_hand_stiffness`、`left_hand_damping` | 各 20 个正值 |
+| 模型、碰撞几何、相机或桌面场景 | 对应仿真配置或资源文件 | 校验后自动重建场景，保留 Isaac 应用 |
+
+重建会停止当前任务和录制，释放旧相机输出、控制器和物理对象，再加载场景并恢复四视图。分步模式重建后等待 **Start / Next stage**。旧轮次和配置历史保留；配置校验不通过时不拆除旧场景。场景构建和碰撞计算仍需要时间，但不再重复启动整个 Isaac。
+
+机器人资源仍需满足本实验的双臂 54 关节、官方运动学和资源清单一致性；重建不负责将任意新机器人自动适配到规划器。修改应用启动环境、GPU 或已加载的普通 Python 代码不属于此配置重建入口。
+
+默认配置使用已有的显式位姿模式（内部名 `legacy_geometry`），直接读取关节角，不再用模板覆盖它们。闭合参考来自人类示范，来源保存在 `task.grasp_reference`；本轮四指调整已撤销，历史实际保持角度见每轮的 `four_fingers_pose.json`。`initial_flange_z_axis_world: null` 表示不额外求解，保留手动调整后的手臂姿态。不要修改输出目录里的 `effective.yaml`；它用于记录实际生效参数。
+
+左手“预抓握手势”保存于 `hand_profiles/left_pregrasp.json`，标签为 `left_pregrasp`：拇指根部第二关节后转约 50.918°，其余 19 个关节目标为零。当前 `hand_open_override_rad` 已使用此手势；以后复用时，将该文件中 `candidates[0].command_position_rad` 填入此字段并应用。文件同时保留实测关节角和仿真来源，复用目标值使用 `command_position_rad`。
+
+自动模板配置保留在 `config.demonstrated.yaml`，下次启动时可用 `--config workspace/experiments/rail_pose_preinsert/config.demonstrated.yaml` 选择。该模式下可修改初始偏移和目标轴，点击应用时自动求解；正常参数迭代同样不需要重启 Isaac。
+
+FoundationPose 在首次测量时加载一次，后续阶段、重试和场景重建复用同一个模型进程；感知模型或启动配置改变时才重新创建感知进程。每次测量独立初始化位姿。进程异常或超时后，下次测量重新启动；退出实验时释放进程。
 
 ## 结果
 
-启动时打印输出绝对路径，默认位于：
+启动时打印输出目录，默认位于：
 
 ```text
 /home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_pose_preinsert/<本次运行>/
 ```
 
-| 文件 | 内容 |
-|---|---|
-| `result.json` | 最终状态、失败原因、感知/抓握模式、实际终点误差 |
-| `inputs/calibration.json` | 仿真头部光学系到 SDK 左臂基座的外参 |
-| `inputs/target.json` | 正确就位时的原始 CAD 目标位姿 |
-| `inputs/scene.json` | 当前桌子与两个完整箱堆的保守包络；导轨台由目标锚定 |
-| `plan.json` | 原真机预插入规划器输出，包含抓握变换、关节路径和碰撞记录 |
-| `initial_state.json` | 图像时刻对应的实测关节与历史 |
-| `teach/measure/verify_observation.json` | 三阶段输入的观测与来源 |
-| `verification.json` | 上游预插入视觉/名义余量检查 |
-| `perception_accuracy.json` | 与同时刻仿真真值比较的中心、CAD 原点及方向误差，仅用于诊断，不修正估计 |
-| `hand_profiles.json` | 保留原 episode 路径、示教时刻、关节顺序和手型命令 |
-| `grasp_template.json` | 五指参考、几何构造、关节适配和指尖拟合误差；不是接触证书 |
-| `grasp_geometry.json` | 复核时实际手部网格对导轨实体的采样穿入量；超限停止 |
-| `collision_approximations.json` | 实际导入 USD 碰撞近似、缩放、材质、摩擦及手轨碰撞是否被过滤 |
-| `captures/trial_000/` | 三路图像及实际状态；视觉模式另有深度、掩码和位姿叠图 |
-| `trace.jsonl`、`events.jsonl` | 仿真反馈、接触、力、阶段、递料和固定约束启停 |
-| `runtime.log`、`foundationpose.log` | Isaac 与可选 GPU 感知日志 |
-| `effective.yaml`、`runtime.json`、`metadata.json` | 场景、控制假设、基座配准及代码/资源摘要 |
+`result.json` 查看结果，`failure_state.json` 查看失败瞬间状态；`runtime.log`、`foundationpose.log` 查看日志；`captures/` 查看图像。每轮参数和结果保存在 `trials/trial_*/`，配置版本保存在 `configurations/`，实际物理参数见 `applied_physics.json` 和 `actual_drives.json`。界面打开或重试成功不代表抓握与搬运验收通过。
 
-`preflight_passed` 只表示离线预检通过。`simulation_preinsert_passed` 需要实际物理法兰到位（2 mm、0.5°，稳定 0.5 s）、导轨复测通过、抓握漂移及接触检查通过，并以场景真值独立检查实际导轨终点（2 mm、0.5°）。固定抓握模式始终报告 `physical_grasp_validated=false`，所有模式始终报告 `real_grasp_validated=false`。
+### 后台服务与窗口重连
 
-`--until grasp` 下，物理模式完成仅记录 `simulation_grasp_passed`；固定模式完成仅记录 `grasp_preview_complete`，不会将预览记作预插入成功。
+后台求解服务随 Isaac 窗口持续运行，不因某一轮成功、失败而退出。测试结束后点击 **Start / Next stage** 或 **Restart task** 开始新一轮；原生工具栏播放不会重启已结束的任务。长时间求解期间独立线程继续更新 `rpc/worker.json`，后台断开超过 5 秒时，等待规划的任务会暂停并显示 `Planner offline`，在物理已经暂停时也能检测。
 
-路径检查沿用上游的离散关节采样，最大 0.005 rad、外部余量 2 mm；不保证连续扫掠体，也不能覆盖真机未建模障碍。桌子及箱堆保守实心包络不允许规划穿过空腔，适用于本次接料后搬运。
-
-## 检查
+若桌面窗口仍在、原主机启动器已退出，可以在项目 Conda 环境中重新连接当前抓握场景（输出目录取当前控制器目录，PID 取主机可见的 Isaac Python 进程）：
 
 ```bash
-python scripts/run_tests.py discover -s workspace/experiments/rail_pose_preinsert/tests -v
+python workspace/experiments/rail_pose_preinsert/bottom_grasp_worker.py <当前输出目录> --scene-pid <Isaac进程PID>
 ```
 
-## 历史旧模板验证记录（2026-10-22）
+重连服务支持本实验的 oracle 抓握、重启与配置重载，按保存的轮次设置恢复配置版本；窗口退出后服务自动结束，同一目录不允许两个后台同时处理请求。FoundationPose 场景应重新启动完整的 `run.py` 主机流程。断线后先连接后台，再点击任务重启。
 
-下表使用旧旋转和 30 mm 偏移（保留在 `legacy_geometry.yaml`）。这些搬运结果不能替新模板证明抓持或到位。
+### 人类示范抓握适配
 
-| 输出目录（本项目 `workspace/outputs/rail_pose_preinsert/` 下） | 结果 |
-|---|---|
-| `20261022_154435_c7fc3d` | 当前场景离线坐标链、IK、完整持轨碰撞规划通过 |
-| `oracle_fixed_01` | 5000/300 位置驱动带载偏差约 4.5 mm，到位失败，保留作为调参依据 |
-| `oracle_fixed_02` | 真值感知＋固定抓握物理搬运通过；实际法兰误差 1.29 mm，实际导轨中心误差 1.79 mm，方向误差约 0.175°；没有插入 |
-| `foundationpose_fixed_01` | 渲染 RGB-D → 独立 GPU 推理链路运行成功；抓握后位姿不一致，规划前停止，未执行搬运 |
-| `oracle_physics_01` | 移除递料支撑后抓持漂移越界（约 3.0 mm、2.43°），在抓持检查阶段停止，未执行搬运 |
-| `preflight_final` | 最终代码的离线规划及测试 JSON 生成通过；真机加载器明确拒绝这些仿真外参 |
-| `oracle_fixed_final` | 额外复跑因共享 overlay 已被另一导轨实验占用而未启动，不计入物理通过次数 |
+`extract_recorded_grasp.py` 从“左手握紧导轨”录制中提取实测手指关节与同步机械臂姿态；`adapt_recorded_grasp.py` 在导轨方向固定、碰撞设置保持原样的条件下拟合左手与末端。参考样本、SDK/仿真基座变换和关节顺序保存在 `hand_profiles/recorded_left_tight_grasp.json`。
 
-FoundationPose 的目标估计出现约 180° 方向歧义：中心误差仅约 0.8～2.9 mm，但原始 CAD 原点在导轨一端，方向反转使原点差约 48 cm。握持后的估计中心误差约 7 cm，三帧也不一致。图像显示当前递料姿态中手臂遮挡了较多导轨，尚未满足“头部能清楚看到两端”的理想条件；这些失败不能直接等同于该理想真机初态的表现。下一步需调整递料姿态和手型，保证两端可见，再处理估计方向一致性。
+2026-10-25 的已验证姿态保存在 `hand_profiles/left_recorded_adapted_grasp.json`，包含实测角、带接触预紧量的目标角、世界系末端位姿、手轨相对位姿和验证结果。无固定连接、无外部支撑保持 5.1 秒通过；末端上移 5 毫米并旋转 1°、返回并稳定保持也通过。末端方向相对示范约差 5.75°；手指角度均方根差约 18.39°，个别末节最大约差 42.08°。拇指目前主要由中段接触。这是当前仿真几何下的适配结果，不是逐关节复现，也不是实机验证。
 
-动态抓持失败说明当前几何基线使用的 30 mm 偏移和手型尚不能作为物理中部抓握策略。没有放宽位姿一致性、到位或漂移门槛来报告成功。
+`adapt_contact_sim.py --output <试验输出目录>` 使用该目录的 `effective.yaml`、`runtime.json` 启动独立接触试验；`adapt_contact_control.py` 执行 `segment.json` 中的短轨迹，限制右臂/右手目标、锁定闭合阶段导轨方向，并在超力、环境碰撞或无支撑滑移时暂停。`squeeze_recorded_grasp.py` 负责微量闭合，`balance_recorded_grasp.py --operation preload|balance` 生成预紧或指根卸载/拇指夹持步骤。每一步都应读取上一段的实测状态；仅触碰或闭合到目标角不等于抓握验收通过。
 
-新增实验测试 7 项通过；通用仿真回归 50 项执行、49 项通过、1 项按原条件跳过。检查覆盖 CAD/光学/基座坐标、轨迹采样与上游一致、方向反转不被中心误差掩盖、实际到位、保持不插入及抓持失败停止。上述物理结果来自当前独立实验，不引用旧双手插入成功记录。
+本次记录位于 `workspace/outputs/rail_pose_preinsert/adapt_recorded_20261025/`，`validation.json` 为汇总，`native/*_state.json`、`*_trace.json`、`*_result.json` 保留检查点与测试过程。配置中的目标角含接触预紧，不能直接当作无接触初始姿态；复用应经过带接触限值的闭合轨迹。原始可视网格与 PhysX 简化碰撞面有细小差异，检查记录同时保留两者结果，未修改碰撞体来消除差异。
 
-`oracle_fixed_02/feedback_audit.json` 对已保存的 128 条搬运阶段反馈补充核对：右臂漂移为 0，手型最大漂移约 0.0028 rad，关节跟踪最大偏差约 0.0028 rad，采样记录中的机器人／持轨外部接触力均为 0。该记录是离线审查，不是一次新的物理运行或连续时间碰撞证明。Ruff 和空白检查通过。
-
-## 自然包握与碰撞复核
-
-- `human_wrap_preview_01`：修正朝向后的固定约束预览；腕部画面呈现四指包握，但独立实体采样确认五指穿入导轨，最大已测穿入约 0.951 mm。旧版运行当时尚无这一拒绝门槛，故其 `grasp_preview_complete` 只保留作诊断，不能作为有效抓握。
-- `human_wrap_physics_02`：启用手轨碰撞后五指均有接触，但撤掉递料支撑后滑移约 16 mm / 15.1°，在抓稳前停止。失败状态网格采样最大穿入约 0.180 mm，显示物理接触与固定约束预览不同。
-- 导轨显示网格约 480 × 45.82 × 25.71 mm；299 个凸碰撞块体积相对误差约 9.4e-7。体积一致仅是资产检查，不能替代接触几何和烘焙结果验证。
-- 手部原始显示网格与 URDF 碰撞网格相同；导入后使用凸包近似，部分凹部会被填充。个别原始 STL 不封闭，不能用其体积比认定碰撞近似精度。
-- 已在本实验绑定可编辑的手部刚体材质，并遍历实例代理验证实际碰撞体继承配置摩擦；逐形状记录随运行保存。未修改其他导轨实验或通用场景。
-- `human_wrap_physics_04`：确认实际碰撞形状比例为 1、接触偏移 0.2 mm、静止偏移 0、手部摩擦 0.8，手轨碰撞没有被过滤；手部近似仍为凸包。五指接触后仍滑移约 18.1 mm / 15.1°，在递料支撑移除后停止，没有进入规划或搬运。参数确实生效不等于握姿已成立。
-- `human_wrap_preflight_guard_01`：已用独立预检验证穿模拒绝生效，旧的指尖拟合通过不能绕过实体网格检查。本轮实验测试 8 项通过，Ruff 通过；未把这些软件检查记作抓握成功。
+当前接触试验的初始状态另存为 `hand_profiles/left_grasp_initial_state.json`。`adapt_contact_sim.py` 启动及 **Restart task** 都会读取它：物理关节恢复保存的实测角，驱动恢复保存的夹持目标，导轨恢复保存的位姿；支撑和固定连接均关闭。初始化完成后暂停，点击 **Play** 或 **Pause / Resume physics** 可持续观察抓握；不会自动重新执行预抓握与递料。恢复后已实际播放约 5 秒验证通过。该入口的持续保持保留滑移和接触超限暂停检查。

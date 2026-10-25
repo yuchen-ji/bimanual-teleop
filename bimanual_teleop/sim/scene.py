@@ -147,7 +147,7 @@ def look_at(position, target, up=(0, 0, 1)):
     return Rotation.from_matrix(np.stack([right, vertical, -forward], axis=1)).as_quat()
 
 
-def build_scene(world, config, model, capture=True):
+def build_scene(world, config, model, capture=True, resources=None):
     import omni.kit.commands
     import omni.usd
     from isaacsim.core.utils.extensions import enable_extension
@@ -200,27 +200,6 @@ def build_scene(world, config, model, capture=True):
                 # intentionally overlap. Keep collisions across fingers, arms,
                 # objects and more distant links.
                 UsdPhysics.FilteredPairsAPI.Apply(ancestor).CreateFilteredPairsRel().AddTarget(child.GetPath())
-    for prim in Usd.PrimRange(stage.GetPrimAtPath(robot_path)):
-        if prim.HasAPI(UsdPhysics.CollisionAPI):
-            link = str(prim.GetPath()).removeprefix(robot_path+"/").split("/")[0]
-            hand = link.startswith(("l_", "r_"))
-            collision = PhysxSchema.PhysxCollisionAPI.Apply(prim)
-            collision.CreateContactOffsetAttr(config["rail"]["contact_offset_m"] if hand else .002)
-            collision.CreateRestOffsetAttr(config["rail"]["rest_offset_m"])
-            if link == "base_link" and prim.IsA(UsdGeom.Mesh):
-                UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexDecomposition")
-                decomposition = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
-                decomposition.CreateMaxConvexHullsAttr(64)
-                decomposition.CreateHullVertexLimitAttr(64)
-                decomposition.CreateVoxelResolutionAttr(500000)
-            if link.endswith(("_force_sensor", "_camera_bracket")) and prim.IsA(UsdGeom.Mesh):
-                UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexDecomposition")
-                decomposition = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
-                decomposition.CreateMaxConvexHullsAttr(32)
-                decomposition.CreateHullVertexLimitAttr(64)
-                decomposition.CreateVoxelResolutionAttr(500000)
-            if hand:
-                UsdShade.MaterialBindingAPI.Apply(prim).Bind(fingers, materialPurpose="physics")
     appearance = config["scene"]["appearance"]
     # A plain indoor floor avoids the blue grid and outdoor light rig in the default asset.
     floor = world.scene.add_ground_plane(size=20., color=np.asarray(appearance["floor_linear_rgb"]))
@@ -360,8 +339,16 @@ def build_scene(world, config, model, capture=True):
         camera_paths.append(path)
         if capture:
             product = rep.create.render_product(path, (width, height))
+            if resources is not None:
+                resources.product(product)
             annotator = rep.AnnotatorRegistry.get_annotator("rgb", device="cuda")
+            if resources is not None:
+                resources.annotator(annotator)
             annotator.attach(product); annotators.append(annotator)
+    # Cameras add a housing collider after the URDF import. Apply the shared
+    # settings only after all robot descendants exist, then inspect them all.
+    from .collisions import configure_robot_collisions
+    configure_robot_collisions(stage, robot_path, model, config)
     return robot, annotators, geometry, robot_path, camera_paths
 
 

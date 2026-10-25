@@ -20,13 +20,15 @@
 
 在 **Remmina 远程桌面里的终端**执行带窗口命令。每个代码块均可整段复制；入口自动启动容器。一次只运行一个 Isaac 实例，先关闭上一次窗口。
 
-**完整物理验证已通过。** `handover-physical-24/trial_000` 从正常初态完成全部 20 个阶段，最终 `status: success`、`phase: verify`。右手撤离后，导轨在无机器人接触的状态下稳定至少 1 秒。当前配置已完成一次全程验证，63 项软件检查通过。
+**通用场景修正上移后的完整物理复验已通过。** `handover-defaults-physical-26/trial_000` 从正常初态完成全部 20 个阶段，最终 `status: success`、`phase: verify`。右手撤离后，导轨在无机器人接触的状态下稳定至少 1 秒。当前配置完成一次全程验证，64 项任务软件检查通过；54 关节目标轨迹与上移前成功回合逐路点完全一致。
 
 `handover.yaml` 已采用两手的实测指节弯曲和小幅根部屈伸预紧。左手食指最后合拢，提起时保持腕姿竖直上提 28 cm。右手在导轨上方 8 cm 先完成预握，再接近中部；双手稳定后，左手张开，沿导轨法向离开并沿轴回收。安装座与手指只在本任务内使用凸分解碰撞体。
 
-右手插入后四指张开、拇指向外退让，保持该手型沿导轨法向抬离 10 cm，再恢复普通张手。承重依靠手指及掌面的真实接触，不使用吸附、固定约束或运动学搬运；导轨质量 764.2 g 和手部原扭矩上限保持不变，通用默认配置未被本任务覆盖写入。
+右手插入后四指张开、拇指向外退让，保持该手型沿导轨法向抬离 10 cm，再恢复普通张手。承重依靠手指及掌面的真实接触，不使用吸附、固定约束或运动学搬运；导轨质量 764.2 g 和手部原扭矩上限保持不变。
 
-[查看成功结果](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-physical-24/result.json)，[查看独立核验报告](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-physical-24/physical_validation.json)，[查看最终右手已离物的腕部截图](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-physical-24/trial_000/snapshots/verify/camera_2.png)。最后 1 秒孔销误差不超过 0.276 mm、轴线倾角不超过 0.133°、支撑面间隙不超过 0.530 mm、插入深度至少 12.877 mm，两手接触力为 0。
+2026-10-23 经用户同意，实测质量、安装座凹槽保真、手部材质与接触参数绑定修正已上移至通用场景。双手任务复用通用实现，保留自身精细手指碰撞覆盖、摩擦系数 1.2、手型与动作参数；其他硬件保持原成功回合实际使用的碰撞表示。新增的箱内场景预设用于单独查看布局，不会自动执行本任务。原 `handover-physical-24` 保留为上移前的成功记录，新回合为 `handover-defaults-physical-26`。回放签名也检查通用碰撞代码哈希。
+
+[查看成功结果](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/result.json)，[查看独立核验报告](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/physical_validation.json)，[查看最终右手已离物的腕部截图](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-defaults-physical-26/trial_000/snapshots/verify/camera_2.png)。最后 1 秒孔销误差不超过 0.276 mm、轴线倾角不超过 0.133°、支撑面间隙不超过 0.530 mm、插入深度至少 12.877 mm，两手接触力为 0。
 
 [查看实际承重与箱沿净空曲线](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-grasp-batch-15/trial_000/extraction_validation.png)，[查看各阶段截图与状态](/home/jiyuchen/project/WYS/bimanual-teleop/workspace/outputs/rail_grasp_insert/handover-grasp-batch-15/trial_000/snapshots)。固定相机在左手高位时可能拍不全，窗口全景更适合查看整个动作。
 
@@ -129,6 +131,7 @@ python /home/jiyuchen/project/WYS/bimanual-teleop/workspace/experiments/rail_gra
 | `planning/` | Lula 模型、路径、耗时和碰撞预检记录 |
 | `grasp_templates.json` | 两手的示范适配手型与抓握变换 |
 | `hand_material_binding.json` | 本回合手部摩擦系数实际绑定的校验结果 |
+| `scene_physics.json` | 通用场景及任务覆盖后的实际导轨质量、碰撞表示、接触参数与材质审计 |
 | `collision_approximations.json` | Isaac 实际碰撞形状、材质和摩擦系数 |
 | `collision_shape_overrides.json` | 仅本任务生效的安装座、手指凸分解覆盖；不改默认场景 |
 | `input.yaml`、`effective.yaml`、`metadata.json` | 本次配置、完整场景、代码版本和哈希 |

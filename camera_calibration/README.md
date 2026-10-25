@@ -21,7 +21,7 @@ python camera_calibration/run.py --help
 | `python camera_calibration/run.py detect 图像 --output 检测图.png` | 检查板检测及圆点编号 |
 | `python camera_calibration/bundle.py --output camera_calibration/data/local.zip` | 生成独立本地采样包 |
 
-采样仅在 USB 连接相机的 Linux 电脑进行，读取原图与实际关节反馈；机器人姿态由操作者通过示教器调整。服务器执行离线求解与导出。
+采样仅在 USB 连接相机的 Linux 电脑进行，读取原图与实际关节反馈；机器人姿态由操作者通过独立示教器调整，停稳后自动保存，不用按拍照键。程序不会使能机械臂或开启拖动模式，不能与本项目 Quest／点动程序并行使用。启动后的逐步操作见[腕部操作说明](docs/wrist.md#启动后怎样操作机械臂)。服务器执行离线求解与导出。
 
 本地没有完整项目时，解压独立采样包，在包根目录创建／更新其中的 `environment.yml` 环境，再执行相同采样命令。包内 `wrist-result.json` 是打包时的腕部标定快照；上传样本时一并保留。离线求解在完整项目中执行。
 

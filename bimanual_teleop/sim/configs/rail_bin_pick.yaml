@@ -1,0 +1,8 @@
+# Rail mostly inside the robot-side narrow edge of the left input bin.
+# Scene only: no automatic grasp controller or task-specific friction/gains.
+robot:
+  collision:
+    finger_approximation: convexDecomposition
+rail:
+  initial_center: [0.7295, 0.56, 0.764]
+  initial_rpy_deg: [0, -21, 180]

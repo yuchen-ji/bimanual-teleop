@@ -9,6 +9,7 @@ from scipy.spatial.transform import Rotation
 
 from bimanual_teleop.sim.kinematics import pose_matrix, pose_vector, transform
 from bimanual_teleop.sim.bin_geometry import bin_geometry
+from bimanual_teleop.sim import collisions as collision_module
 from bimanual_teleop.sim.recording import atomic_json
 from controller import RailController, RailReplayController, interpolate_pose
 from evaluate import initial_pose_valid, insertion_metrics, is_seated, pose_error
@@ -25,6 +26,9 @@ MILESTONES = {"settle": "scene", "left_lift": "grasp", "left_clear": "extract", 
 
 def scene_signature(config, task=None):
     fields = {key: config[key] for key in ("robot", "scene", "rail")}
+    # A common collision-code change can alter effective geometry even when
+    # the YAML values stay identical. Frozen input alone cannot restore it.
+    fields["collision_code_sha256"] = hashlib.sha256(Path(collision_module.__file__).read_bytes()).hexdigest()
     if task and task.get("convex_decomposition_links"):
         fields["convex_decomposition_links"] = sorted(set(task["convex_decomposition_links"]))
     return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
@@ -74,71 +78,18 @@ class HandoverController(RailController):
         return PHASES[self.phase_index]
 
     def bind_simulation(self, *, world, robot, rail, robot_path, camera_paths):
-        """Record the collider representations actually imported by Isaac."""
+        """Use the shared scene implementation, retaining explicit task geometry."""
         import omni.usd
-        from pxr import Usd, UsdPhysics, UsdShade, PhysxSchema
-        stage = omni.usd.get_context().get_stage()
-        decomposition_links = set(self.task.get("convex_decomposition_links", []))
-        unknown = decomposition_links-set(self.model.collidable_links)
-        if unknown:
-            raise ValueError("Unknown collision decomposition links: "+", ".join(sorted(unknown)))
-        # Author collision offsets on the actual shapes. USD instance proxies
-        # cannot be edited, so expand their collision instances in this stage.
-        paths = [str(prim.GetPath()) for prim in Usd.PrimRange(stage.GetPrimAtPath(robot_path), Usd.TraverseInstanceProxies())
-                 if prim.HasAPI(UsdPhysics.CollisionAPI)]
-        for path in paths:
-            prim = stage.GetPrimAtPath(path)
-            while prim.IsInstanceProxy():
-                parent = prim.GetParent()
-                while parent.IsInstanceProxy():
-                    parent = parent.GetParent()
-                parent.SetInstanceable(False)
-                prim = stage.GetPrimAtPath(path)
-            link_name = path.removeprefix(robot_path+"/").split("/")[0]
-            collision = PhysxSchema.PhysxCollisionAPI.Apply(prim)
-            collision.CreateContactOffsetAttr(self.config["rail"]["contact_offset_m"] if link_name.startswith(("l_", "r_")) else .002)
-            collision.CreateRestOffsetAttr(self.config["rail"]["rest_offset_m"])
-            if link_name in decomposition_links:
-                UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexDecomposition")
-                decomposition = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
-                decomposition.CreateMaxConvexHullsAttr(64)
-                decomposition.CreateHullVertexLimitAttr(64)
-                decomposition.CreateVoxelResolutionAttr(500000)
-        # URDF collision shapes live below instance roots. Bind at editable
-        # rigid links so their instance-proxy colliders inherit the material.
-        material = UsdShade.Material.Get(stage, "/World/Materials/Fingers")
-        bound_links = []
-        for name in self.model.collidable_links:
-            if name.startswith(("l_", "r_")):
-                link = stage.GetPrimAtPath(robot_path+"/"+name)
-                UsdShade.MaterialBindingAPI.Apply(link).Bind(material, bindingStrength=UsdShade.Tokens.strongerThanDescendants, materialPurpose="physics")
-                bound_links.append(name)
-        colliders = []
-        for prim in Usd.PrimRange(stage.GetPrimAtPath(robot_path), Usd.TraverseInstanceProxies()):
-            if prim.HasAPI(UsdPhysics.CollisionAPI) or prim.HasAPI(UsdPhysics.MeshCollisionAPI):
-                material, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial("physics")
-                physics = UsdPhysics.MaterialAPI(material.GetPrim()) if material else None
-                collision = PhysxSchema.PhysxCollisionAPI(prim)
-                record = {"path": str(prim.GetPath()), "type": prim.GetTypeName(),
-                                  "approximation": UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr().Get(),
-                                  "schemas": prim.GetAppliedSchemas(),
-                                  "material": str(material.GetPath()) if material else None,
-                                  "static_friction": physics.GetStaticFrictionAttr().Get() if physics else None,
-                                  "dynamic_friction": physics.GetDynamicFrictionAttr().Get() if physics else None,
-                                  "contact_offset_m": collision.GetContactOffsetAttr().Get(),
-                                  "rest_offset_m": collision.GetRestOffsetAttr().Get(),
-                                  "instance_proxy": prim.IsInstanceProxy()}
-                link_name = str(prim.GetPath()).removeprefix(robot_path+"/").split("/")[0]
-                if link_name in bound_links and (physics is None or not all(value is not None and abs(value-self.config["rail"]["finger_friction"]) < 1e-6
-                                                                          for value in (record["static_friction"], record["dynamic_friction"]))):
-                    raise RuntimeError("Experimental hand friction did not bind to "+str(prim.GetPath()))
-                if link_name in decomposition_links and prim.HasAPI(UsdPhysics.CollisionAPI) and record["approximation"] != "convexDecomposition":
-                    raise RuntimeError("Experimental collision decomposition did not bind to "+str(prim.GetPath()))
-                colliders.append(record)
-        atomic_json(self.output/"collision_approximations.json", colliders)
-        atomic_json(self.output/"collision_shape_overrides.json", {"scope": "this experiment only", "convex_decomposition_links": sorted(decomposition_links)})
-        atomic_json(self.output/"hand_material_binding.json", {"scope": "this experiment only", "coefficient": self.config["rail"]["finger_friction"],
-                                                               "static_and_dynamic": True, "validated": True, "bound_links": bound_links})
+        from bimanual_teleop.sim.collisions import configure_robot_collisions
+        extra = sorted(set(self.task.get("convex_decomposition_links", [])))
+        report = configure_robot_collisions(omni.usd.get_context().get_stage(), robot_path,
+                                            self.model, self.config, extra)
+        atomic_json(self.output/"collision_approximations.json", report["colliders"])
+        atomic_json(self.output/"collision_shape_overrides.json", {
+            "scope": "scene defaults plus explicit experiment overrides",
+            "convex_decomposition_links": extra,
+            "effective_decomposition_links": report["effective_decomposition_links"]})
+        atomic_json(self.output/"hand_material_binding.json", report["hand_material_binding"])
 
     def reset(self):
         super().reset()

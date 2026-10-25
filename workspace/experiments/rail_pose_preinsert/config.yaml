@@ -4,11 +4,31 @@ simulation:
     arm_stiffness: 25000
     arm_damping: 700
     ready_deg:
-      # Initial IK is regenerated from the whole-hand demonstration template.
-      left: [50.1732673645, -22.6610012054, -39.6042785645, -67.4375457764, 5.9438371658, 27.5366897583, -11.7362689972]
+      # Explicit initial joints (degrees); hot-reloadable by the already-running task.
+      left: [17.88493700292714, -32.26841232945305, -3.2485987330603443, -98.97769710945893, 7.554691790471086, 41.9495918788994, 9.219927912801321]
       right: [-30, -60, 34, -52, -30, 12, -4]
 task:
+  desktop_layout:
+    enabled: true
+    maximize: true
+    resolution: [1280, 960]  # All four viewports: 4:3, letterboxed when necessary.
+    main_eye_m: [-0.8, -1.25, 1.8]
+    main_target_m: [0.45, 0.0, 0.78]
+    inspector_width_fraction: 0.13
+    tools_width_fraction: 0.115
+    content_height_fraction: 0.22
+    camera_column_fraction: 0.60
+    wrist_height_fraction: 0.45
+  # Keep Isaac open, edit this file, then click Simulation -> Apply config / Restart task.
+  # Optional overrides: hand_open_override_rad / hand_grasp_override_rad (20 radians each),
+  # rail_in_flange_override: {xyz_m: [x, y, z], rpy_deg: [roll, pitch, yaw]},
+  # left_hand_stiffness / left_hand_damping (20 positive values each).
   end_stage: preinsert
+  until: grasp
+  orientation_locked_grasp: true
+  grasp_attachment_criterion: distal_clearance
+  grasp_contact_surface: bottom
+  four_finger_flexion_limit_rad: [1.5, 1.5, 1.2]
   preinsert_offset_m: 0.02
   hand_transition_s: 3.0
   settle_s: 1.0
@@ -24,13 +44,16 @@ task:
   position_tolerance_m: 0.002
   rotation_tolerance_rad: 0.00873
   environment_force_limit_n: 0.5
-  grasp_template: demonstrated_power_wrap
-  # Adapt the recorded five-finger shape using MCP/palm geometry.
-  # The recording does not contain a calibrated object-to-wrist transform.
-  # The resulting whole-hand transform is saved into effective.yaml at runtime.
-  wrap_thumb_tip_yz_m: [0.015, -0.005]
-  wrap_finger_tip_yz_m: [-0.010, -0.017]
-  wrap_max_joint_adjustment_rad: 0.4
-  wrap_long_axis_sign: -1
-  initial_rail_offset_world_m: [-0.04, 0.10, 0.13]
+  # Existing explicit-pose mode; the hand below is still the fitted human five-finger wrap.
+  # Automatic fitting/axis IK remains available in config.demonstrated.yaml.
+  grasp_template: legacy_geometry
+  # Saved demonstration-derived hand/rail transform; arm retains the manually adjusted pose.
+  # 预抓握手势：hand_profiles/left_pregrasp.json（left_pregrasp）。
+  hand_open_override_rad: [0.0, -0.8886863472798008, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  hand_grasp_override_rad: [0.2551212074177469, -0.16800370458037484, 0.5479630824918496, 0.6409535043424316, 0.8288197914027785, -0.6427928745746598, 1.3425467196440275, 0.9538208664689828, 1.0236251603777082, -0.4529488063926916, 1.3408138253375994, 0.6434693208061505, 0.9552445995986609, -0.4279185704984505, 1.3768394742863939, 0.6636289855758274, 0.9207583749334731, -0.3665721376230242, 1.1816037153855754, 0.9638062291186131]
+  rail_in_flange_override: {"xyz_m": [0.0070506793729993595, 0.04433991444879011, 0.13936705948175895], "rpy_deg": [-74.33190945839206, 13.739521165975376, 177.52733262774933]}
+  initial_flange_z_axis_world: null
+  grasp_reference: {"source_episode": "/home/jiyuchen/project/WYS/bimanual-teleop/recordings/rail_place3/episode_000034", "source_manifest_sha256": "7073b9eded8aac23ec58f43cd1ec22e0e45fc5c25ed7431f9419da44a482685a", "reference_timestamp_ns": 9308925455052, "method": "demonstrated_left_power_wrap_v1"}
   minimum_support_fingers: 4
+  # Generate the rail directly below the left palm.
+  initial_rail_pose_world: {"xyz_m": [0.6146137836699338, 0.24447946427177789, 0.9769491012277585], "rpy_deg": [6.05800759067105e-08, 6.993903616797906e-08, 90.06497842122855]}

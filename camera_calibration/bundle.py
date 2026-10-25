@@ -76,9 +76,14 @@ def build(output):
             "Wrist: python camera_calibration/run.py wrist collect --output capture_wrist\n"
             "External: python camera_calibration/run.py external collect --wrist-result wrist-result.json "
             "--side left --output capture_external\n"
-            "The sampler reads images/measured joints. Move the robot using the pendant.\n"
+            "The sampler only reads images/measured joints; it does not enable motion or drag mode.\n"
+            "Use an independent robot pendant. For wrist calibration, fix the board, move the wrist, then hold 1-2 s.\n"
+            "Samples save automatically: wait for Saved and the counter to increase before moving again.\n"
+            "Do not run the project's Quest/jog SDK programs alongside capture (shared UDP 4730).\n"
+            "Q ends capture only; robot motion remains under pendant control.\n"
             "Upload the whole capture folder and wrist-result.json; run solve/export in the full project.\n"
-            "Chinese instructions: camera_calibration/README.md\n",
+            "Chinese operation steps: camera_calibration/docs/wrist.md\n"
+            "External calibration: camera_calibration/docs/external.md\n",
         )
         archive.writestr(
             f"{prefix}/bundle-manifest.json", json.dumps(manifest, indent=2) + "\n"

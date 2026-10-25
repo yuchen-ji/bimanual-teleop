@@ -1,0 +1,127 @@
+{
+  "simulation_only": true,
+  "label": "left_locked_grasp",
+  "source_run": "workspace/outputs/rail_pose_preinsert/locked_grasp_20261025_05",
+  "status": "constrained_grasp_complete",
+  "pure_friction_grasp_validated": false,
+  "command_position_rad": [
+    -0.425230170936197,
+    -0.7175766697988266,
+    0.9364939981990879,
+    -0.27124972477569415,
+    0.2378919452978897,
+    -0.0008107019239105284,
+    2.0260434424812175,
+    5.030646679526169e-12,
+    0.39473082955476435,
+    -0.0003937893488910049,
+    1.9161962469423957,
+    0.0031373509591120555,
+    0.27818046127916435,
+    -7.4952062277589e-05,
+    1.6631240173781332,
+    0.4678123632983272,
+    0.16436092179121864,
+    0.00016721586871426553,
+    1.4052567869855956,
+    0.5904619428576594
+  ],
+  "measured_position_rad": [
+    -0.41724637150764465,
+    -0.7195648550987244,
+    0.9386094808578491,
+    -0.27068647742271423,
+    0.24139750003814697,
+    -0.0010895063169300556,
+    2.024723768234253,
+    -0.0005307448445819318,
+    0.39822468161582947,
+    -0.0005661965697072446,
+    1.914704442024231,
+    0.002349498448893428,
+    0.2826331853866577,
+    -0.00012974666606169194,
+    1.66162109375,
+    0.4673110544681549,
+    0.16847197711467743,
+    0.00027497083647176623,
+    1.4048805236816406,
+    0.5899391174316406
+  ],
+  "joint_names": [
+    "l_thumb_cmc_flex",
+    "l_thumb_cmc_abd",
+    "l_thumb_mcp",
+    "l_thumb_ip",
+    "l_index_finger_mcp_flex",
+    "l_index_finger_mcp_abd",
+    "l_index_finger_pip",
+    "l_index_finger_dip",
+    "l_middle_finger_mcp_flex",
+    "l_middle_finger_mcp_abd",
+    "l_middle_finger_pip",
+    "l_middle_finger_dip",
+    "l_ring_finger_mcp_flex",
+    "l_ring_finger_mcp_abd",
+    "l_ring_finger_pip",
+    "l_ring_finger_dip",
+    "l_pinky_mcp_flex",
+    "l_pinky_mcp_abd",
+    "l_pinky_pip",
+    "l_pinky_dip"
+  ],
+  "T_flange_rail": [
+    [
+      -0.9976771679998118,
+      0.0024648808005573327,
+      -0.06807490590895893,
+      0.00039790849915777304
+    ],
+    [
+      0.06811259567088261,
+      0.021852497839038122,
+      -0.9974382901458961,
+      0.04273512328165929
+    ],
+    [
+      -0.0009709597568531227,
+      -0.999758167108843,
+      -0.021969627587118862,
+      0.13418574036967523
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "verification": {
+    "simulation_only": true,
+    "pregrasp_max_rotation_error_rad": 8.425101037226698e-08,
+    "pregrasp_max_translation_m": 0.02114775567153059,
+    "five_distal_surface_gap_m": {
+      "thumb": 0.0001760980797107891,
+      "index_finger": 9.671415086764774e-05,
+      "middle_finger": 8.147595455178132e-05,
+      "ring_finger": 7.726671870973616e-05,
+      "pinky": 7.629844559166194e-05
+    },
+    "intersecting_links": [],
+    "collision_geometry_and_settings_unchanged": true,
+    "hand_rail_collision_enabled": true,
+    "attachment_criterion": "distal_clearance_0.2mm",
+    "pure_friction_grasp_validated": false,
+    "follow_check": {
+      "max_relative_error_m_rad": [
+        9.073310184385578e-06,
+        6.51992522951294e-06
+      ],
+      "flange_motion_m_rad": [
+        0.0022506398969924686,
+        0.01204321475709238
+      ]
+    },
+    "fixed_attachment_active": true
+  }
+}

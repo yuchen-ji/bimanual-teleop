@@ -16,6 +16,31 @@
 
 机器人使用实拍的主要配色：双臂与上部躯干为白色喷涂外壳，立柱、底座和连接部位为深灰，手掌与手指采用深色哑光近似实拍中的手套，力传感器为灰色金属。`robot.appearance` 控制配色，覆盖 CAD 原有的红绿蓝调试色；该覆盖只作用于显示材质。手套的厚度、布料形状和机器人贴纸尚未建模。
 
+## 场景物理参数与预设
+
+2026-10-23 起，导轨默认质量采用用户实测 **764.2 g**，`mass_is_assumption: false`。左右手安装座默认采用保留凹槽的凸分解碰撞体；手部物理材质和接触偏移会写入实际碰撞形状，包括 URDF 导入的实例内部形状，并在启动时核验。手部接触偏移为 0.2 mm、静止偏移为 0。默认手部摩擦系数仍为 0.8；双手任务的实验值 1.2 继续由任务覆盖。
+
+| 启动方式 | 导轨初态 | 手指碰撞 |
+|---|---|---|
+| 普通启动 | 导轨台上，保持原初态 | 凸包，计算量较低 |
+| `configs/hand_contact.yaml` | 导轨台上，保持原初态 | 精细凸分解 |
+| `configs/rail_bin_pick.yaml` | 大部分在左侧料箱内，斜靠机器人侧窄边 | 精细凸分解 |
+
+在 Remmina 终端执行以下命令查看箱内初态：
+
+```bash
+cd /home/jiyuchen/project/WYS/bimanual-teleop
+conda activate bimanual-teleop
+python /home/jiyuchen/project/WYS/bimanual-teleop/bimanual_teleop/sim/run.py \
+  --config /home/jiyuchen/project/WYS/bimanual-teleop/bimanual_teleop/sim/configs/rail_bin_pick.yaml
+```
+
+窗口选择 **Frame entire scene** 查看布局。此预设只加载场景，双臂保持待机；自动取出、换手和插入使用[双手任务入口](../../workspace/experiments/rail_grasp_insert/README.md)。若只想查看导轨台上的精细手部接触场景，将配置文件名换为 `hand_contact.yaml`。
+
+手指精度由 `robot.collision.finger_approximation` 选择 `convexHull` 或 `convexDecomposition`。安装座凹槽默认采用凸分解；底座、传感器及相机支架保留原成功回合实际使用的凸包表示。旧场景曾声明这些硬件采用凸分解，但导入节点类型使声明没有实际生效；本次不将其变成额外的几何变化。刚度、阻尼、抓点、手型、抓放顺序及速度仍属于任务控制配置。
+
+普通启动的实际物理参数检查结果写入 `bimanual_teleop/sim/data/local/scene_physics.json`；任务启动则写入该次输出目录的 `scene_physics.json`。其中包括实际导轨质量、每个碰撞体的表示、接触偏移和材质，以及绑定核验结果。场景配置变化后旧轨迹会进行场景签名检查，已有成功记录保留其原始完整配置和代码哈希。
+
 ## 日常使用
 
 在 **Remmina 远程桌面内的终端**运行：
